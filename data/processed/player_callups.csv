@@ -1,0 +1,12 @@
+callup_id,int_match_id,player_name,team_id,position,starting_xv
+1,1,Antoine Dupont,1,Scrum-half,1
+2,1,Romain Ntamack,1,Fly-half,1
+3,1,Julien Marchand,1,Hooker,1
+4,1,Cyril Baille,1,Prop,1
+5,1,Thomas Ramos,1,Fullback,1
+6,1,Peato Mauvaka,1,Hooker,0
+7,1,Maxime Lucu,2,Scrum-half,0
+8,1,Matthieu Jalibert,2,Fly-half,0
+9,1,Yoram Moefana,2,Centre,1
+10,1,Damian Penaud,4,Wing,1
+11,2,Antoine Dupont,1,Scrum-half,1

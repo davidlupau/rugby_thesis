@@ -1,0 +1,5 @@
+match_id,travel_distance_km,weather_temp_celsius,weather_condition,home_players_away,away_players_away,player_away_differential,home_league_position,away_league_position,home_form_last_3,away_form_last_3,home_elo_rating,away_elo_rating,days_since_last_home,days_since_last_away,is_international_window
+10991,285,18,Clear,0,0,0,1,6,2.33,1.67,1456,1389,7,6,0
+10992,650,17,Rain,5,2,3,2,3,2.67,2.00,1502,1478,7,7,0
+10993,420,19,Clear,0,0,0,5,8,1.67,1.33,1398,1356,7,6,0
+11150,120,15,Cloudy,11,0,11,1,12,2.67,1.00,1520,1310,7,7,1
