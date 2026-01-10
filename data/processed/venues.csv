@@ -1,0 +1,27 @@
+venue_id,stadium_name,city,latitude,longitude
+v01,Stade Marcel-Michelin,Clermont-Ferrand,45.789294,3.106213
+v02,Stade Jean-Dauger,Bayonne,43.485423,-1.479238
+v03,Stade d'Aguiléra,Biarritz,43.481753,1.538083
+v04,Stade Amédée-Domenech,Brive-la-Gaillarde,45.16156,1.548423
+v05,Stade Pierre-Fabre,Castres,43.610853,2.252734
+v06,Stade des Alpes,Grenoble,45.187323,5.740024
+v07,Stade de Gerland,Lyon,45.723469,4.832225
+v08,GGL Stadium,Montpellier,43.592978,3.849662
+v09,Stade Charles-Mathon,Oyonnax,46.25338,5.644532
+v10,Paris La Défense Arena,Nanterre,48.89558,2.229822
+v11,Stade Mayol,Toulon,43.118927,5.936442
+v12,Stade de la Rabine,Vannes,47.651813,-2.76113
+v13,Stade du Hameau,Pau,43.309507,-0.316887
+v14,Stade Jean-Bouin,Paris,48.843283,2.252927
+v15,Stade André et Guy Boniface,Mont-de-Marsan,43.89548,-0.482803
+v16,Stade Marcel-Deflandre,La Rochelle,46.158213,-1.178482
+v17,Stade Ernest-Wallon,Toulouse,43.62184,1.415579
+v18,Stade Armandie,Agen,44.192586,0.620497
+v19,Stade Chaban-Delmas,Bordeaux,44.829186,-0.598256
+v20,Stade Aimé-Giral,Perpignan,42.715473,2.891394
+v21,Stade de France,Saint-Denis,48.924332,2.360172
+v22,Orange Velodrome,Marseille,43.269706,5.395918
+v23,Parc OL,Lyon,45.764986,4.981903
+v24,Stade Matmut-Atlantique,Bordeaux,44.897277,-0.561542
+v25,Reale Arena,San Sebastian,43.301368,-1.973644
+v26,Allianz Riviera,Nice,43.705061,7.19266
