@@ -12,7 +12,7 @@ weather_param = [
 ]
 
 # Scraping configuration
-SCRAPING_CONFIG = {
+scraping_config = {
     'rate_limit_seconds': 2,  # Wait 2 seconds between requests (be respectful!)
     'max_retries': 3,
     'timeout': 10,

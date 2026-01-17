@@ -1,7 +1,7 @@
 match_id,season_id,round,date,time,venue,home_team_id,away_team_id,home_score,away_score,home_bonus_offensive,home_bonus_defensive,away_bonus_offensive,away_bonus_defensive,referee,match_url
-8292,s01,30,2018-05-26,16:45,v10,t10,t05,14,19,,,,,,
-8642,s02,15,2019-01-26,18:00,v20,t20,t13,24,30,,,,,,
+8292,s01,30,2018-05-26,16:45,Paris La D√©fense Arena,t10,t05,14,19,,,,,,
+8642,s02,15,2019-01-26,18:00,Stade Aim√©-Giral,t20,t13,24,30,,,,,,
 9904,s03,24,2022-04-30,17:00,Stade du Hameau,Section Paloise,Racing 92,21,42,,,,,,
-78,s04,12,2022-12-03,15:00,Stade Marcel-Michelin,ASM Clermont,Montpellier HÈrault Rugby ,19,14,,,,,,
-10254,s05,27,2024-06-16,18:00,Stade des Alpes,FC Grenoble Rugby,Montpellier HÈrault Rugby ,18,20,,,,,,
-11004,s06,19,2025-03-23,21:05,Stade Chaban-Delmas,Union Bordeaux-BËgles,,32,24,,,,,,
+78,s04,12,2022-12-03,15:00,Stade Marcel-Michelin,ASM Clermont,Montpellier H√©rault Rugby ,19,14,,,,,,
+10254,s05,27,2024-06-16,18:00,Stade des Alpes,FC Grenoble Rugby,Montpellier H√©rault Rugby ,18,20,,,,,,
+11004,s06,19,2025-03-23,21:05,Stade Chaban-Delmas,Union Bordeaux-B√®gles,Section Paloise,32,24,,,,,,

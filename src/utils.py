@@ -31,7 +31,7 @@ def load_dataset(folder_name, file_name):
         print(f"Error loading {file_name} from {folder_name}/: {e}")
         return None
 
-def save_analysis_to_csv(data, file_name, folder_name=None):
+def save_to_csv(data, file_name, folder_name=None):
     """Save analysis results to CSV file(s) in analysis_output folder
     
     Parameters:
@@ -49,9 +49,9 @@ def save_analysis_to_csv(data, file_name, folder_name=None):
         
         # Construct output directory path
         if folder_name:
-            output_dir = project_root / "data" / "analysis_output" / folder_name
+            output_dir = project_root / "data" / folder_name
         else:
-            output_dir = project_root / "data" / "analysis_output"
+            output_dir = project_root / "data"
 
         # Create directory if it doesn't exist
         output_dir.mkdir(parents=True, exist_ok=True)
