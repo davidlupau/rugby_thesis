@@ -1,13 +1,13 @@
 import time
 import requests
-from constants import scraping_config
+from constants import SCRAPING_CONFIG
 
 def scrape_match_page(match_url):
     """
     Scrape a single match page with rate limiting
     """
     headers = {
-        'User-Agent': scraping_config['user_agent']
+        'User-Agent': SCRAPING_CONFIG['user_agent']
     }
     
     try:

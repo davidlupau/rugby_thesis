@@ -1,7 +1,7 @@
 
 
 # List of weather variables
-weather_param = [
+WEATHER_PARAM = [
     "temperature_2m",           # Temperature at 2 meters (°C)
     "relativehumidity_2m",      # Relative humidity (%)
     "precipitation",            # Precipitation (mm)
@@ -12,9 +12,19 @@ weather_param = [
 ]
 
 # Scraping configuration
-scraping_config = {
+SCRAPING_CONFIG = {
     'rate_limit_seconds': 2,  # Wait 2 seconds between requests (be respectful!)
     'max_retries': 3,
     'timeout': 10,
     'user_agent': 'UniversityResearchBot/1.0 (BSc Thesis Project; your.email@domain.com)'
 }
+
+# List of seasons
+SEASONS = [
+    "2017-2018",
+    "2018-2019", 
+    "2021-2022",
+    "2022-2023",
+    "2023-2024",
+    "2024-2025"
+]

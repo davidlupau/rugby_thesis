@@ -1,7 +1,7 @@
-season_id,season_name,start_date,end_date,venue_round_29,venue_round_30,int_window_1,int_window_2
-s01,2017-2018,2017-08-26,2018-06-02,v23,v21,,
-s02,2018-2019,2018-08-25,2019-06-15,v24,v21,,
-s03,2021-2022,2021-09-04,2022-06-24,v26,v21,,
-s04,2022-2023,2022-09-03,2023-06-17,v25,v21,,
-s05,2023-2024,2023-08-18,2024-06-26,v24,v22,,
-s06,2024-2025,2024-09-07,2025-06-28,v23,v21,,
+season_name,start_date,end_date,venue_round_29,venue_round_30,int_window_1,int_window_2
+2017-2018,2017-08-26,2018-06-02,Parc OL,Stade de France,,
+2018-2019,2018-08-25,2019-06-15,Stade Matmut-Atlantique,Stade de France,,
+2021-2022,2021-09-04,2022-06-24,Allianz Riviera,Stade de France,,
+2022-2023,2022-09-03,2023-06-17,Reale Arena,Stade de France,,
+2023-2024,2023-08-18,2024-06-26,Stade Matmut-Atlantique,Orange Velodrome,,
+2024-2025,2024-09-07,2025-06-28,Parc OL,Stade de France,,
