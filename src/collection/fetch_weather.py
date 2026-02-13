@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from utils import load_dataset, save_to_csv
 from constants import WEATHER_PARAM
 
+
 def merge_match_venue_data(df_matches, df_venues):
     """
     Merge match data with venue coordinates
@@ -194,4 +195,3 @@ if __name__ == "__main__":
     
     # Create a csv file
     save_to_csv(df_weather, "weather.csv", "processed")
-    
