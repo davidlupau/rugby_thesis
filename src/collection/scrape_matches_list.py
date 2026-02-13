@@ -13,9 +13,10 @@ import time
 import sys
 from pathlib import Path
 
-# Add the src directory to the path so we can import constants
+# Add the src directory to the path so we can import constants and utils
 sys.path.append(str(Path(__file__).parent.parent))
 from constants import SEASONS, SCRAPING_CONFIG
+from utils import load_dataset, save_to_csv
 
 
 def get_project_root():
@@ -29,54 +30,18 @@ def get_project_root():
     return Path(__file__).parent.parent.parent
 
 
-def load_data_file(file_name, folder_name="processed"):
-    """
-    Load a data file from the data folder.
-    
-    Args:
-        file_name (str): Name of the file to load
-        folder_name (str): Subfolder within data (default: 'processed')
-        
-    Returns:
-        DataFrame or None: Loaded data or None if error occurs
-    """
-    try:
-        project_root = get_project_root()
-        data_file = project_root / "data" / folder_name / file_name
-        
-        if not data_file.exists():
-            print(f"Error: File not found: {data_file}")
-            return None
-            
-        return pd.read_csv(data_file)
-    except Exception as e:
-        print(f"Error loading {file_name} from {folder_name}/: {e}")
-        return None
 
 
-def save_data_file(data, file_name, folder_name="processed"):
+
+def get_project_root():
     """
-    Save data to a file in the data folder.
+    Get the project root directory path.
     
-    Args:
-        data (DataFrame): Data to save
-        file_name (str): Name of the output file
-        folder_name (str): Subfolder within data (default: 'processed')
-        
     Returns:
-        bool: True if successful, False otherwise
+        Path: The project root directory
     """
-    try:
-        project_root = get_project_root()
-        output_dir = project_root / "data" / folder_name
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        output_file = output_dir / file_name
-        data.to_csv(output_file, index=False)
-        return True
-    except Exception as e:
-        print(f"Error saving {file_name} to {folder_name}/: {e}")
-        return False
+    # Go up two levels from src/collection/ to get to project root
+    return Path(__file__).parent.parent.parent
 
 
 def get_team_venue(team_name, teams_df):
@@ -109,7 +74,7 @@ def load_playoff_matches():
         list: List of dictionaries containing playoff match information
     """
     try:
-        playoffs_df = load_data_file('playoffs.csv')
+        playoffs_df = load_dataset('processed', 'playoffs.csv')
         
         if playoffs_df is None:
             return []
@@ -166,7 +131,7 @@ def scrape_matches_for_round(season, round_num):
         matches = []
         
         # Load teams data
-        teams_df = load_data_file('teams.csv')
+        teams_df = load_dataset('processed', 'teams.csv')
         
         if teams_df is None:
             print(f"Error: Could not load teams data. Skipping round {round_num}")
@@ -286,7 +251,8 @@ def scrape_matches_list():
             df = df.sort_values(['season', 'round', 'is_playoff'])
             
             # Save to data/processed directory
-            if save_data_file(df, 'matches.csv'):
+            result = save_to_csv(df, 'matches.csv', 'processed')
+            if result:
                 print(f"Successfully saved {len(all_matches)} matches to data/processed/matches.csv")
             else:
                 print("Failed to save matches data")
