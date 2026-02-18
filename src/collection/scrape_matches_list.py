@@ -79,6 +79,10 @@ def load_playoff_matches():
         if playoffs_df is None:
             return []
         
+        # Rename 'match_url' column to 'url' for consistency
+        if 'match_url' in playoffs_df.columns:
+            playoffs_df = playoffs_df.rename(columns={'match_url': 'url'})
+        
         playoff_matches = []
         for index, row in playoffs_df.iterrows():
             playoff_matches.append({
@@ -88,7 +92,7 @@ def load_playoff_matches():
                 'venue': row['venue'],
                 'home_team': row['home_team'],
                 'away_team': row['away_team'],
-                'url': row['match_url'],
+                'url': row['url'],
                 'is_playoff': 1  # 1 = playoff/access match
             })
         
@@ -251,7 +255,7 @@ def scrape_matches_list():
             df = df.sort_values(['season', 'round', 'is_playoff'])
             
             # Save to data/processed directory
-            result = save_to_csv(df, 'matches.csv', 'processed')
+            result = save_to_csv(df, 'matches_list.csv', 'processed')
             if result:
                 print(f"Successfully saved {len(all_matches)} matches to data/processed/matches.csv")
             else:

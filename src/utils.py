@@ -1,16 +1,34 @@
+"""
+Utility functions for data loading and saving operations.
+
+This module provides helper functions for:
+    - Loading datasets from CSV files
+    - Saving DataFrames to CSV files with proper path handling
+    - Managing file paths relative to the project root
+
+All paths are resolved relative to the project root directory to ensure
+consistent behavior regardless of where the script is executed from.
+"""
+
 import pandas as pd
 from pathlib import Path
+from typing import Union, Dict
 
 
-def load_dataset(folder_name, file_name):
-    """Load the dataset from a CSV file
-    
-    Parameters:
-        folder_name (string): name of the subfolder within /data folder
-        file_name (string): name of the CSV file in the specified subfolder
-    
+def load_dataset(folder_name: str, file_name: str) -> pd.DataFrame:
+    """
+    Load the dataset from a CSV file.
+
+    Args:
+        folder_name (str): Name of the subfolder within /data folder
+        file_name (str): Name of the CSV file in the specified subfolder
+
     Returns:
-        dataframe containing the data from the CSV file or None if error occurs
+        pd.DataFrame: DataFrame containing the data from the CSV file, or None if error occurs
+
+    Example:
+        df = load_dataset("processed", "matches.csv")
+        # Loads data/processed/matches.csv
     """
     print("\nLoading dataset...\n")
     try:
@@ -31,16 +49,28 @@ def load_dataset(folder_name, file_name):
         print(f"Error loading {file_name} from {folder_name}/: {e}")
         return None
 
-def save_to_csv(data, file_name, folder_name=None):
-    """Save analysis results to CSV file(s) in analysis_output folder
-    
-    Parameters:
+def save_to_csv(data: pd.DataFrame, file_name: str, folder_name: str = None) -> Union[str, None]:
+    """
+    Save analysis results to CSV file(s).
+
+    Can handle both single DataFrames and dictionaries of DataFrames.
+    Automatically creates directories if they don't exist.
+
+    Args:
         data: DataFrame or dict of DataFrames to save
-        file_name (str): name of the output file (without extension for dicts)
-        folder_name (str, optional): subfolder within analysis_output to save to
-    
+        file_name (str): Name of the output file (without extension for dicts)
+        folder_name (str, optional): Subfolder within data/ to save to.
+                                     If None, saves to data/ root.
+
     Returns:
-        str or list: path(s) to saved file(s), None if failed
+        str or list: Path(s) to saved file(s), None if failed
+
+    Example:
+        # Save single DataFrame
+        save_to_csv(df, "results.csv", "analysis_output")
+        
+        # Save multiple DataFrames (dict)
+        save_to_csv({"train": train_df, "test": test_df}, "datasets", "processed")
     """
     print(f"Saving analysis to {file_name}...\n")
     try:

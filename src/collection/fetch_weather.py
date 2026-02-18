@@ -1,8 +1,32 @@
+"""
+Weather Data Collection for Rugby Matches
+
+This module fetches historical weather data for Top 14 rugby matches using the
+Open-Meteo API. It collects weather conditions at kickoff time for each match
+based on venue coordinates.
+
+Weather parameters collected:
+    - Temperature (2m)
+    - Humidity (2m)
+    - Precipitation
+    - Rain
+    - Wind speed (10m)
+    - Cloud cover
+    - Day/night indicator
+
+Workflow:
+    1. Load match data and venue coordinates
+    2. Merge match data with venue coordinates
+    3. Fetch weather data for each match at kickoff time
+    4. Save results to CSV file
+"""
+
 import requests
 import pandas as pd
 import sys
 import time
 from pathlib import Path
+from typing import Union
 
 # Add the src directory to the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -10,13 +34,24 @@ from utils import load_dataset, save_to_csv
 from constants import WEATHER_PARAM
 
 
-def merge_match_venue_data(df_matches, df_venues):
+def merge_match_venue_data(df_matches: pd.DataFrame, df_venues: pd.DataFrame) -> pd.DataFrame:
     """
-    Merge match data with venue coordinates
-    
-    The merge is done on stadium_name, which should be present in both:
-    - matches.csv: 'venue' column contains stadium names from LNR
-    - venues.csv: 'stadium_name' column contains the reference names
+    Merge match data with venue coordinates.
+
+    Performs a left join between match data and venue data based on stadium names.
+    Handles cleaning and standardization of stadium names for better matching.
+
+    Args:
+        df_matches (pd.DataFrame): DataFrame containing match data with 'venue' column
+        df_venues (pd.DataFrame): DataFrame containing venue data with 'stadium_name', 
+                                  'latitude', and 'longitude' columns
+
+    Returns:
+        pd.DataFrame: Merged DataFrame with venue coordinates added to match data
+
+    Note:
+        Matches with unmatched venues will have NaN values for coordinate columns
+        and will be skipped during weather data collection.
     """
     print("Merging match and venue data...")
     
@@ -50,21 +85,31 @@ def merge_match_venue_data(df_matches, df_venues):
     
     return df_merged
 
-def fetch_weather_for_match(match_id, date, time, latitude, longitude):
+def fetch_weather_for_match(match_id: str, date: str, time: str, latitude: float, longitude: float) -> Union[dict, None]:
     """
-    Fetch weather data for a single match at kickoff time
-    
-    Parameters:
-    -----------
-    match_id : str/int - Match identifier
-    date : str - Match date (YYYY-MM-DD)
-    time : str - Kickoff time (HH:MM)
-    latitude : float - Venue latitude
-    longitude : float - Venue longitude
-    
+    Fetch weather data for a single match at kickoff time.
+
+    Uses the Open-Meteo API to retrieve historical weather data for the exact
+    kickoff time of a match based on venue coordinates.
+
+    Args:
+        match_id (str/int): Match identifier for logging
+        date (str): Match date in format YYYY-MM-DD
+        time (str): Kickoff time in format HH:MM
+        latitude (float): Venue latitude coordinate
+        longitude (float): Venue longitude coordinate
+
     Returns:
-    --------
-    dict : Weather data or None if failed
+        dict: Dictionary containing weather parameters, or None if request failed
+
+    Weather Parameters Returned:
+        - temperature: Temperature at 2m (Celsius)
+        - humidity: Relative humidity at 2m (%)
+        - precipitation: Precipitation amount (mm)
+        - rain: Rain amount (mm)
+        - wind_speed: Wind speed at 10m (km/h)
+        - cloud_cover: Cloud cover (%)
+        - is_day: Day/night indicator (1=day, 0=night)
     """
     try:
         # Parse kickoff hour
@@ -122,18 +167,25 @@ def fetch_weather_for_match(match_id, date, time, latitude, longitude):
         print(f"Match {match_id}: {e}")
         return None
 
-def collect_all_weather_data(df_merged, delay=0.5):
+def collect_all_weather_data(df_merged: pd.DataFrame, delay: float = 0.5) -> pd.DataFrame:
     """
-    Collect weather data for all matches
-    
-    Parameters:
-    -----------
-    df_merged : DataFrame - Merged match and venue data
-    delay : float - Delay between API calls (seconds)
-    
+    Collect weather data for all matches.
+
+    Iterates through all matches in the merged dataset and fetches weather data
+    for each match at its kickoff time. Implements rate limiting to respect
+    API usage policies.
+
+    Args:
+        df_merged (pd.DataFrame): Merged DataFrame containing match and venue data
+        delay (float): Delay between API calls in seconds (default: 0.5)
+
     Returns:
-    --------
-    DataFrame : Weather data for all matches
+        pd.DataFrame: DataFrame containing weather data for all successfully
+                     processed matches
+
+    Note:
+        Matches with missing venue coordinates are skipped automatically.
+        Progress is printed every 50 matches.
     """
     print(f"Collecting weather data for {len(df_merged)} matches...")
     print("=" * 80)
