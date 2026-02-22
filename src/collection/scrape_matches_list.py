@@ -135,7 +135,7 @@ def scrape_matches_for_round(season, round_num):
         matches = []
         
         # Load teams data
-        teams_df = load_dataset('processed', 'teams.csv')
+        teams_df = load_dataset('reference', 'teams.csv')
         
         if teams_df is None:
             print(f"Error: Could not load teams data. Skipping round {round_num}")

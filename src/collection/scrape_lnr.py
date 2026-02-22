@@ -146,15 +146,29 @@ def get_soup_selenium(driver, url: str, wait_for_class: str, delay: float) -> Op
     """
     try:
         time.sleep(delay)
+        logger.info(f"Loading URL: {url}")
         driver.get(url)
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, wait_for_class))
-        )
-        time.sleep(2)  # Extra wait for JavaScript to finish populating the DOM
+        
+        # Set a maximum timeout for the wait
+        start_time = time.time()
+        max_wait = 15  # Maximum 15 seconds total wait time
+        
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, wait_for_class))
+            )
+            logger.info(f"Found element {wait_for_class} on {url}")
+        except TimeoutException:
+            logger.warning(f"Timeout waiting for '{wait_for_class}' on {url}")
+            # Continue anyway and return what we have
+            pass
+        
+        # Make sure we don't wait too long overall
+        elapsed = time.time() - start_time
+        if elapsed < max_wait:
+            time.sleep(min(2, max_wait - elapsed))  # Extra wait but respect max timeout
+        
         return BeautifulSoup(driver.page_source, 'html.parser')
-    except TimeoutException:
-        logger.error(f"Selenium timeout waiting for '{wait_for_class}' on {url}")
-        return None
     except WebDriverException as e:
         logger.error(f"Selenium WebDriver error on {url}: {e}")
         return None
@@ -367,33 +381,52 @@ def extract_player_stats(soup: BeautifulSoup) -> Dict[str, int]:
         'away_turnovers':   0,
     }
     try:
-        rosters = soup.find_all('div', class_='match-statistics__roster')
-        if len(rosters) < 2:
-            logger.warning(f"Found {len(rosters)} roster section(s), expected 2")
-            return stats
+        # Set a timeout for this function to prevent hanging
+        import signal
+        
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Player stats extraction took too long")
+        
+        # Set a 30-second timeout for player stats extraction
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(30)  # 30 seconds max
+        timeout_active = True
+        
+        try:
+            rosters = soup.find_all('div', class_='match-statistics__roster')
+            if len(rosters) < 2:
+                logger.warning(f"Found {len(rosters)} roster section(s), expected 2")
+                return stats
 
-        def sum_by_class(roster, modifier):
-            total = 0
-            for cell in roster.find_all(
-                'div',
-                class_=lambda x: x and f'player-row__cell--{modifier}' in str(x)
-            ):
-                text = ''.join(c for c in cell.get_text(strip=True) if c.isdigit())
-                if text:
-                    total += int(text)
-            return total
+            def sum_by_class(roster, modifier):
+                total = 0
+                # Use a more efficient approach - find all div elements first, then filter
+                for cell in roster.find_all('div'):
+                    # Check if the cell has the right class
+                    cell_classes = cell.get('class', [])
+                    if cell_classes and any(f'player-row__cell--{modifier}' in cls for cls in cell_classes):
+                        text = ''.join(c for c in cell.get_text(strip=True) if c.isdigit())
+                        if text:
+                            total += int(text)
+                return total
 
-        home, away = rosters[0], rosters[1]
+            home, away = rosters[0], rosters[1]
 
-        stats['home_line_breaks'] = sum_by_class(home, 'lineBreak')
-        stats['home_offloads']    = sum_by_class(home, 'offload')
-        stats['home_turnovers']   = sum_by_class(home, 'breakdownSteals')
-        stats['away_line_breaks'] = sum_by_class(away, 'lineBreak')
-        stats['away_offloads']    = sum_by_class(away, 'offload')
-        stats['away_turnovers']   = sum_by_class(away, 'breakdownSteals')
+            stats['home_line_breaks'] = sum_by_class(home, 'lineBreak')
+            stats['home_offloads']    = sum_by_class(home, 'offload')
+            stats['home_turnovers']   = sum_by_class(home, 'breakdownSteals')
+            stats['away_line_breaks'] = sum_by_class(away, 'lineBreak')
+            stats['away_offloads']    = sum_by_class(away, 'offload')
+            stats['away_turnovers']   = sum_by_class(away, 'breakdownSteals')
 
-        logger.info(f"Player stats: {stats}")
+            logger.info(f"Player stats: {stats}")
 
+        finally:
+            if timeout_active:
+                signal.alarm(0)
+
+    except TimeoutError as e:
+        logger.error(f"Timeout in player stats extraction: {e}")
     except Exception as e:
         logger.error(f"Error extracting player stats: {e}\n{traceback.format_exc()}")
 
@@ -582,7 +615,7 @@ def scrape_one_match(
 def scrape_lnr(
     matches_df: pd.DataFrame,
     output_csv: str = "regular_season_stats.csv",
-    delay: float = 2.0,
+    delay: float = 1.0,
     headless: bool = True,
     save_incomplete: bool = True,
 ) -> pd.DataFrame:
@@ -636,30 +669,61 @@ def scrape_lnr(
             logger.info(f"[{idx + 1}/{total}] {season} — match {match_id}")
 
             try:
-                match_data = scrape_one_match(
-                    session, driver, match_id, base_url, season, delay
-                )
-                results.append(match_data)
+                # Set a timeout for the entire match scraping process
+                try:
+                    import signal
+                    
+                    def timeout_handler(signum, frame):
+                        raise TimeoutError(f"Match {match_id} took too long to scrape")
+                    
+                    # Set a 2-minute timeout per match (120 seconds)
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(120)  # 2 minutes max per match
+                    timeout_active = True
+                except (ImportError, AttributeError):
+                    # signal module not available, proceed without timeout
+                    timeout_active = False
+                
+                try:
+                    match_data = scrape_one_match(
+                        session, driver, match_id, base_url, season, delay
+                    )
+                    results.append(match_data)
 
-                critical = [
-                    'match_date', 'match_time', 'home_score', 'away_score',
-                    'referee', 'home_tries', 'away_tries',
-                    'home_possession', 'away_possession',
-                ]
-                missing_fields = [f for f in critical if f not in match_data]
-                if missing_fields:
-                    incomplete.append({
-                        'match_id':       match_id,
-                        'missing_fields': ', '.join(missing_fields),
-                        'fields_scraped': len(match_data),
-                    })
-                    logger.warning(f"[{match_id}] Incomplete — missing: {missing_fields}")
+                    critical = [
+                        'match_date', 'match_time', 'home_score', 'away_score',
+                        'referee', 'home_tries', 'away_tries',
+                        'home_possession', 'away_possession',
+                    ]
+                    missing_fields = [f for f in critical if f not in match_data]
+                    if missing_fields:
+                        incomplete.append({
+                            'match_id':       match_id,
+                            'missing_fields': ', '.join(missing_fields),
+                            'fields_scraped': len(match_data),
+                        })
+                        logger.warning(f"[{match_id}] Incomplete — missing: {missing_fields}")
 
+                finally:
+                    # Disable the alarm if it was set
+                    if timeout_active:
+                        signal.alarm(0)
+
+            except TimeoutError as e:
+                logger.error(f"[{match_id}] Timeout error: {e}")
+                continue
             except Exception as e:
                 logger.error(
                     f"[{match_id}] Unexpected error: {e}\n{traceback.format_exc()}"
                 )
                 continue
+
+            # Save progress every 10 matches to avoid losing data
+            if (idx + 1) % 10 == 0:
+                progress_df = pd.DataFrame(results)
+                progress_path = save_to_csv(progress_df, f"{output_csv}_progress.csv", "processed")
+                if progress_path:
+                    logger.info(f"Progress saved: {len(progress_df)} matches saved to '{progress_path}'")
 
     finally:
         driver.quit()
