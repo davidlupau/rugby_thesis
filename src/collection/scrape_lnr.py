@@ -232,24 +232,6 @@ def extract_score(soup: BeautifulSoup) -> Tuple[Optional[int], Optional[int]]:
         return None, None
 
 
-def extract_referee(soup: BeautifulSoup) -> Optional[str]:
-    """
-    Extract the referee name from the compositions page.
-    """
-    try:
-        for block in soup.find_all('div', class_='player-block__infos'):
-            position = block.find('p', class_='player-block__position')
-            if position and 'Arbitre Central' in position.get_text():
-                name = block.find('p', class_='player-block__name')
-                if name:
-                    return name.get_text(strip=True)
-        return None
-
-    except Exception as e:
-        logger.error(f"Error extracting referee: {e}")
-        return None
-
-
 def extract_stat_bar(soup: BeautifulSoup, stat_title: str) -> Tuple[Optional[int], Optional[int]]:
     """
     Extract a home/away integer statistic from a stats-bar element.
@@ -519,15 +501,7 @@ def scrape_one_match(
     else:
         logger.warning(f"[{match_id}] Failed to fetch main page")
 
-    # --- 2. Compositions page: referee ---
-    soup = get_soup(session, build_page_url(base_url, "compositions"), delay)
-    if soup:
-        referee = extract_referee(soup)
-        if referee: data['referee'] = referee
-    else:
-        logger.warning(f"[{match_id}] Failed to fetch compositions page")
-
-    # --- 3. Statistics page (Selenium): all team stats + player stats ---
+    # --- 2. Statistics page (Selenium): all team stats + player stats ---
     soup = get_soup_selenium(
         driver,
         build_page_url(base_url, "statistiques-du-match"),
@@ -692,7 +666,7 @@ def scrape_lnr(
 
                     critical = [
                         'match_date', 'match_time', 'home_score', 'away_score',
-                        'referee', 'home_tries', 'away_tries',
+                        'home_tries', 'away_tries',
                         'home_possession', 'away_possession',
                     ]
                     missing_fields = [f for f in critical if f not in match_data]

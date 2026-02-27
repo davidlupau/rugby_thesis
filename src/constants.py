@@ -31,6 +31,4 @@ SEASONS = [
 
 # Translations of terms from LNR website
 TRANSLATIONS = {
-    'Arbitre Central': 'Referee',
-        
 }

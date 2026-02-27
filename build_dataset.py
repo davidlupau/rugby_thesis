@@ -1,10 +1,11 @@
 import pandas as pd
+from src.scrape_matches_list import scrape_matches_list
 from src.collection.scrape_lnr import scrape_lnr
 from src.utils import load_dataset, save_to_csv
 
 def main():
     # Load matches data
-    df_matches_list = load_dataset("processed", "matches_list.csv")
+    df_matches_list = scrape_matches_list()
     
     # Scrape statistics for regular season matches
     print("Scraping statistics for regular season matches")
