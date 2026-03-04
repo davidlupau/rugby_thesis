@@ -48,9 +48,15 @@ import logging
 import traceback
 from pathlib import Path
 from typing import Optional
+import sys
 
 import pandas as pd
 from bs4 import BeautifulSoup
+
+# Add the src directory to the path so we can import constants and utils
+sys.path.append(str(Path(__file__).parent.parent))
+from constants import SEASONS
+from utils import save_to_csv
 
 try:
     from selenium import webdriver
@@ -71,14 +77,7 @@ except ImportError as e:
 # CONFIGURATION
 # =============================================================================
 
-TARGET_SEASONS = [
-    "2017-2018",
-    "2018-2019",
-    "2021-2022",
-    "2022-2023",
-    "2023-2024",
-    "2024-2025",
-]
+TARGET_SEASONS = SEASONS
 
 LNR_BASE = "https://top14.lnr.fr"
 
@@ -277,7 +276,7 @@ def phase1_collect_urls(
         logger.info("WebDriver closed")
 
     df_urls = pd.DataFrame(sorted(all_urls), columns=["player_url"])
-    df_urls.to_csv(output_csv, index=False)
+    save_to_csv(df_urls, output_csv, "processed")
     logger.info(
         f"Phase 1 complete — {len(df_urls)} unique player URLs saved to {output_csv}"
     )
@@ -374,77 +373,82 @@ def extract_career_data(soup: BeautifulSoup) -> dict:
     result = {}
 
     try:
-        # Each season row has class 'history-season-line'
-        # We skip the header line (history-season-line--header-line)
-        season_lines = soup.find_all(
-            "div",
-            class_=lambda c: c and "history-season-line" in c
-            and "header" not in c,
+        # PAGE STRUCTURE (confirmed via diagnostic):
+        # Season label and stats are in SEPARATE sibling rows — never the same row.
+        #
+        #   history-season-line--season-line  → season label e.g. "2024-2025"
+        #   history-season-line (no modifier) → stats: Division, Club, Matches,
+        #                                        Minutes jouées, Points, ...
+        #
+        # Walk all lines in order, track current_season from label rows,
+        # read stats from the immediately following data row(s).
+
+        all_lines = soup.find_all(
+            "div", class_=lambda c: c and "history-season-line" in c
         )
 
-        for line in season_lines:
-            # --- Season label ---
-            # The season pill/button contains the season text, e.g. "2024-2025"
-            season_label = None
+        current_season = None
 
-            # Try the season-cell first
-            season_cell = line.find("div", class_="history-season-cell")
-            if season_cell:
-                text = season_cell.get_text(strip=True)
-                # Season labels look like "2024-2025"
-                match = re.search(r"\d{4}-\d{4}", text)
-                if match:
-                    season_label = match.group()
+        for line in all_lines:
+            classes = line.get("class", [])
 
-            if not season_label or season_label not in TARGET_SEASONS:
+            # Skip header row
+            if "history-season-line--header-line" in classes:
                 continue
 
-            # --- Club name ---
-            club_name = ""
-            club_cell = line.find("a", class_="club-cell__name")
-            if not club_cell:
-                # Fallback: any element with club-cell__name
-                club_cell = line.find(class_="club-cell__name")
-            if club_cell:
-                club_name = club_cell.get_text(strip=True)
+            # Season label row — update tracker, don't extract stats
+            if "history-season-line--season-line" in classes:
+                season_cell = line.find(
+                    "div", class_=lambda c: c and "history-season-cell--season" in c
+                )
+                if season_cell:
+                    current_season = season_cell.get_text(strip=True)
+                continue
 
-            # --- Matches and minutes ---
-            # history-season-cell elements contain individual stat values
-            # The order (from the screenshot) is:
-            #   [0] season (already parsed above via history-season-cell)
-            #   Then in history-season-list__other-columns:
-            #     club | matches | minutes | points | tries | penalty | drop |
-            #     yellow | orange | red
-            # We find all history-season-cell elements inside the line
-            cells = line.find_all("div", class_="history-season-cell")
-            # Remove the season cell itself; remaining cells hold stats
-            # The first cell after the season cell is matches, second is minutes
-            # (based on screenshot column order: Matches, Minutes jouées)
-            stat_cells = [
-                c for c in cells
-                if not re.search(r"\d{4}-\d{4}", c.get_text(strip=True))
+            # Data row — only process if we're in a target season
+            if not current_season or current_season not in TARGET_SEASONS:
+                continue
+
+            # Values appear twice in the HTML (outer div + inner __content div).
+            # Use __content only to get clean deduplicated values.
+            # Column order: Division, Club, Matches, Minutes jouées, Points, ...
+            values = [
+                c.get_text(strip=True)
+                for c in line.find_all("div", class_="history-season-cell__content")
             ]
 
-            matches_played = None
-            minutes_played = None
+            if len(values) < 4:
+                continue
 
-            if len(stat_cells) >= 2:
-                try:
-                    matches_played = int(stat_cells[0].get_text(strip=True))
-                except ValueError:
-                    pass
-                try:
-                    minutes_played = int(stat_cells[1].get_text(strip=True))
-                except ValueError:
-                    pass
+            division    = values[0]
+            club_name   = values[1]
+            matches_raw = values[2]
+            minutes_raw = values[3]
 
-            # Compute average minutes per match
-            avg_min = None
-            if matches_played and minutes_played and matches_played > 0:
+            # Only Top 14 rows
+            if "TOP 14" not in division.upper():
+                continue
+
+            try:
+                matches_played = int(matches_raw)
+                minutes_played = int(minutes_raw)
+            except ValueError:
+                continue
+
+            # Skip seasons with zero activity
+            if matches_played == 0 and minutes_played == 0:
+                continue
+
+            # Compute avg_min — guard against matches=0 data anomalies on LNR
+            if matches_played > 0:
                 avg_min = round(minutes_played / matches_played, 1)
+            elif minutes_played > 0:
+                avg_min = float(minutes_played)  # fallback: store raw minutes
+            else:
+                avg_min = None
 
-            result[f"{season_label}_team"] = club_name
-            result[f"{season_label}_avg_min"] = avg_min
+            result[f"{current_season}_team"]    = club_name
+            result[f"{current_season}_avg_min"] = avg_min
 
     except Exception as exc:
         logger.error(f"Error extracting career data: {exc}\n{traceback.format_exc()}")
@@ -561,8 +565,8 @@ def phase2_scrape_profiles(
                 else:
                     logger.warning(f"  No data returned for {url}")
 
-                # Save incrementally every 50 players so progress is not lost
-                if i % 50 == 0:
+                # Save incrementally every 10 players so progress is not lost
+                if i % 10 == 0:
                     _save_players(records, output_csv)
                     logger.info(f"  Checkpoint saved at {i} players")
 
@@ -606,13 +610,13 @@ def _save_players(records: list, output_csv: str) -> pd.DataFrame:
             if col not in season_cols:
                 season_cols.append(col)
 
-    # Keep only columns that exist in df
-    ordered = [c for c in id_cols + season_cols if c in df.columns]
-    # Append any unexpected extra columns at the end
-    extra = [c for c in df.columns if c not in ordered]
-    df = df[ordered + extra]
+    # Reindex to ensure ALL season columns always exist (NaN if no data).
+    # This guarantees consistent schema regardless of which seasons appear
+    # in the test sample.
+    all_expected = id_cols + season_cols
+    df = df.reindex(columns=all_expected)
 
-    df.to_csv(output_csv, index=False, encoding="utf-8-sig")
+    save_to_csv(df, output_csv, "processed")
     return df
 
 

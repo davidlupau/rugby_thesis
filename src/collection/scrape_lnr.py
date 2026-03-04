@@ -415,6 +415,7 @@ def extract_player_stats(soup: BeautifulSoup) -> Dict[str, int]:
     return stats
 
 
+
 def calculate_bonus_points(
     season: str,
     home_score: Optional[int],
@@ -461,30 +462,49 @@ def calculate_bonus_points(
 # SINGLE-MATCH SCRAPER
 # =============================================================================
 
+def extract_player_urls(soup: BeautifulSoup) -> list:
+    """
+    Extract all player profile URLs from a match compositions page.
+
+    Structure: <a class="player-pitch player-pitch--position-N"
+                  href="https://top14.lnr.fr/joueur/...">
+    inside <div class="line-up__pitch-team">.
+
+    Returns a deduplicated list of absolute player profile URLs.
+    """
+    seen = set()
+    urls = []
+    for a in soup.find_all('a', href=lambda h: h and '/joueur/' in h):
+        href = a.get('href', '')
+        if href.startswith('/'):
+            href = 'https://top14.lnr.fr' + href
+        if href not in seen:
+            seen.add(href)
+            urls.append(href)
+    return urls
+
+
 def scrape_one_match(
     session: requests.Session,
     driver,
     match_id: str,
     base_url: str,
     season: str,
+    round_num: str,
+    home_team: str,
+    away_team: str,
     delay: float,
-) -> Dict:
+) -> Tuple[Dict, list]:
     """
     Scrape all statistics for a single match.
 
-    Uses requests for the main and compositions pages (fast),
+    Uses requests for the main page (fast),
     and Selenium for the statistics page (JavaScript-rendered).
 
-    Args:
-        session:   requests.Session
-        driver:    Selenium WebDriver
-        match_id:  Match identifier (for logging)
-        base_url:  Full match URL from matches.csv
-        season:    Season string for bonus point calculation
-        delay:     Seconds between requests
-
     Returns:
-        Dictionary of all scraped statistics
+        Tuple of:
+            - match_data dict  (same as before)
+
     """
     data = {'match_id': match_id}
 
@@ -501,7 +521,20 @@ def scrape_one_match(
     else:
         logger.warning(f"[{match_id}] Failed to fetch main page")
 
-    # --- 2. Statistics page (Selenium): all team stats + player stats ---
+    # --- 2. Compositions page (Selenium): collect player profile URLs ---
+    player_urls = []
+    compo_soup = get_soup_selenium(
+        driver,
+        build_page_url(base_url, "compositions"),
+        'line-up__pitch-team',
+        delay,
+    )
+    if compo_soup:
+        player_urls = extract_player_urls(compo_soup)
+    else:
+        logger.warning(f"[{match_id}] Could not load compositions page")
+
+    # --- 3. Statistics page (Selenium): team stats ---
     soup = get_soup_selenium(
         driver,
         build_page_url(base_url, "statistiques-du-match"),
@@ -567,7 +600,7 @@ def scrape_one_match(
 
         data.update(extract_player_stats(soup))
 
-    # --- 4. Bonus points (calculated, not scraped) ---
+    # --- 3. Bonus points ---
     home_bonus, away_bonus = calculate_bonus_points(
         season,
         data.get('home_score'),
@@ -578,8 +611,8 @@ def scrape_one_match(
     data['home_bonus_points'] = home_bonus
     data['away_bonus_points'] = away_bonus
 
-    logger.info(f"[{match_id}] Scraped {len(data)} fields")
-    return data
+    logger.info(f"[{match_id}] Scraped {len(data)} fields, {len(player_urls)} player URLs")
+    return data, player_urls
 
 
 # =============================================================================
@@ -599,24 +632,27 @@ def scrape_lnr(
     This is the only function to import from your main script.
 
     Args:
-        matches_df:       DataFrame with columns: match_id, url, season
-        output_csv:       Filename to save the results CSV (default: "regular_season_stats.csv")
-        delay:            Seconds between requests (be respectful to the server)
-        headless:         Run Chrome without a visible window
-        save_incomplete:  If True, also save a _incomplete.csv listing matches
-                          with missing critical fields
+        matches_df:   DataFrame with columns: match_id, url, season, round,
+                      home_team, away_team
+        output_csv:   Path to save match-level stats CSV
+
+        delay:        Seconds between requests
+        headless:     Run Chrome without a visible window
+        save_incomplete: Save a _incomplete.csv for matches with missing fields
 
     Returns:
-        DataFrame containing all scraped statistics
+        Tuple of:
+            - match stats DataFrame  (one row per match)
+            - player records DataFrame  (one row per player per match)
 
     Example:
         from scrape_lnr import scrape_lnr
         import pandas as pd
 
         matches = pd.read_csv("data/matches.csv")
-        stats   = scrape_lnr(matches, output_csv="regular_season_stats.csv")
+        stats_df, players_df = scrape_lnr(matches)
     """
-    required = {'match_id', 'url', 'season'}
+    required = {'match_id', 'url', 'season', 'round', 'home_team', 'away_team'}
     missing_cols = required - set(matches_df.columns)
     if missing_cols:
         raise ValueError(f"Input DataFrame is missing columns: {missing_cols}")
@@ -632,85 +668,85 @@ def scrape_lnr(
     driver = init_driver(headless=headless)
 
     results = []
+    all_player_urls = set()
     incomplete = []
 
     try:
         for idx, row in matches_df.iterrows():
-            match_id = str(row['match_id'])
-            base_url = str(row['url'])
-            season   = str(row['season'])
+            match_id  = str(row['match_id'])
+            base_url  = str(row['url'])
+            season    = str(row['season'])
+            round_num = str(row['round'])
+            home_team = str(row['home_team'])
+            away_team = str(row['away_team'])
 
-            logger.info(f"[{idx + 1}/{total}] {season} — match {match_id}")
+            logger.info(f"[{idx + 1}/{total}] {season} R{round_num} — match {match_id}")
 
             try:
-                # Set a timeout for the entire match scraping process
-                try:
-                    import signal
-                    
-                    def timeout_handler(signum, frame):
-                        raise TimeoutError(f"Match {match_id} took too long to scrape")
-                    
-                    # Set a 2-minute timeout per match (120 seconds)
-                    signal.signal(signal.SIGALRM, timeout_handler)
-                    signal.alarm(120)  # 2 minutes max per match
-                    timeout_active = True
-                except (ImportError, AttributeError):
-                    # signal module not available, proceed without timeout
-                    timeout_active = False
-                
-                try:
-                    match_data = scrape_one_match(
-                        session, driver, match_id, base_url, season, delay
-                    )
-                    results.append(match_data)
+                import signal
 
-                    critical = [
-                        'match_date', 'match_time', 'home_score', 'away_score',
-                        'home_tries', 'away_tries',
-                        'home_possession', 'away_possession',
-                    ]
-                    missing_fields = [f for f in critical if f not in match_data]
-                    if missing_fields:
-                        incomplete.append({
-                            'match_id':       match_id,
-                            'missing_fields': ', '.join(missing_fields),
-                            'fields_scraped': len(match_data),
-                        })
-                        logger.warning(f"[{match_id}] Incomplete — missing: {missing_fields}")
+                def timeout_handler(signum, frame):
+                    raise TimeoutError(f"Match {match_id} took too long to scrape")
 
-                finally:
-                    # Disable the alarm if it was set
-                    if timeout_active:
-                        signal.alarm(0)
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(120)
+                timeout_active = True
+            except (ImportError, AttributeError):
+                timeout_active = False
+
+            try:
+                match_data, player_urls = scrape_one_match(
+                    session, driver, match_id, base_url,
+                    season, round_num, home_team, away_team, delay
+                )
+                results.append(match_data)
+                all_player_urls.update(player_urls)
+
+                critical = [
+                    'match_date', 'match_time', 'home_score', 'away_score',
+                    'home_tries', 'away_tries',
+                    'home_possession', 'away_possession',
+                ]
+                missing_fields = [f for f in critical if f not in match_data]
+                if missing_fields:
+                    incomplete.append({
+                        'match_id':       match_id,
+                        'missing_fields': ', '.join(missing_fields),
+                        'fields_scraped': len(match_data),
+                    })
+                    logger.warning(f"[{match_id}] Incomplete — missing: {missing_fields}")
 
             except TimeoutError as e:
-                logger.error(f"[{match_id}] Timeout error: {e}")
+                logger.error(f"[{match_id}] Timeout: {e}")
                 continue
             except Exception as e:
-                logger.error(
-                    f"[{match_id}] Unexpected error: {e}\n{traceback.format_exc()}"
-                )
+                logger.error(f"[{match_id}] Error: {e}\n{traceback.format_exc()}")
                 continue
+            finally:
+                if timeout_active:
+                    signal.alarm(0)
 
-            # Save progress every 10 matches to avoid losing data
+            # Save progress every 10 matches
             if (idx + 1) % 10 == 0:
-                progress_df = pd.DataFrame(results)
-                progress_path = save_to_csv(progress_df, f"{output_csv}_progress.csv", "processed")
-                if progress_path:
-                    logger.info(f"Progress saved: {len(progress_df)} matches saved to '{progress_path}'")
+                save_to_csv(pd.DataFrame(results), f"{output_csv}_progress.csv", "processed")
+                logger.info(f"Progress saved at match {idx + 1}")
 
     finally:
         driver.quit()
         logger.info("Chrome WebDriver closed")
 
+    # --- Save final outputs ---
     results_df = pd.DataFrame(results)
-    
-    # Save main results using save_to_csv function
+
     result_path = save_to_csv(results_df, output_csv, "processed")
     if result_path:
-        logger.info(f"Saved {len(results_df)} matches to '{result_path}'")
-    else:
-        logger.error(f"Failed to save {len(results_df)} matches")
+        logger.info(f"Saved {len(results_df)} match records to '{result_path}'")
+
+    if all_player_urls:
+        urls_df = pd.DataFrame(sorted(all_player_urls), columns=["player_url"])
+        urls_path = save_to_csv(urls_df, "player_urls.csv", "processed")
+        if urls_path:
+            logger.info(f"Saved {len(urls_df)} unique player URLs to '{urls_path}'")
 
     if incomplete:
         print(f"\n{'='*70}")
@@ -721,11 +757,7 @@ def scrape_lnr(
         print(f"{'='*70}\n")
         if save_incomplete:
             incomplete_filename = output_csv.replace('.csv', '_incomplete.csv')
-            incomplete_path = save_to_csv(pd.DataFrame(incomplete), incomplete_filename, "processed")
-            if incomplete_path:
-                logger.info(f"Incomplete list saved to '{incomplete_path}'")
-            else:
-                logger.error(f"Failed to save incomplete list")
+            save_to_csv(pd.DataFrame(incomplete), incomplete_filename, "processed")
     else:
         logger.info("✅ All matches scraped with complete data")
 
