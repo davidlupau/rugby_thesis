@@ -31,8 +31,8 @@ def main():
     df_players_info = scrape_player_registry(df_player_match_stats)
 
     # Scrape international player call-ups from Wikipedia
-    print("Scraping international player call-ups from Wikipedia...")
-    df_international_players = scrape_international_windows()
+    df_international_window = load_dataset("reference", "international_windows.csv")
+    df_international_players = scrape_international_windows(df_international_window)
 
 if __name__ == "__main__":
     main()

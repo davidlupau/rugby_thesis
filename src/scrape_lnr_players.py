@@ -150,61 +150,36 @@ def get_soup_selenium(
         return None
 
 
-def _expand_career_history(driver) -> None:
-    """
-    Click "Afficher les 5 suivants" repeatedly until all seasons are visible.
-
-    KEY FINDINGS FROM DIAGNOSTIC
-    -----------------------------
-    - The element is a <div class="show-more history-season-list__show-more">
-      containing a <span class="show-more__link">.
-    - It is displayed=False (off-screen) so Selenium's .click() silently fails.
-    - driver.execute_script("arguments[0].click()", el) works correctly.
-    - One click adds 5 more seasons. Players with 10+ seasons need 2 clicks.
-
-    We loop until the element is gone from the DOM (no more hidden seasons).
-    """
-    css = "div.history-season-list__show-more"
-    max_clicks = 10  # safety cap
-    for _ in range(max_clicks):
-        els = driver.find_elements(By.CSS_SELECTOR, css)
-        if not els:
-            break
-        try:
-            driver.execute_script("arguments[0].click();", els[0])
-            time.sleep(1.5)  # wait for new rows to render
-        except Exception as exc:
-            logger.debug(f"_expand_career_history click failed: {exc}")
-            break
-
-
 def get_soup_simple(
     driver,
     url: str,
     wait_class: str,
     delay: float = 1.5,
-    extra_wait: float = 2.0,
+    extra_wait: float = 3.0,
 ) -> Optional[BeautifulSoup]:
     """
-    Load a player profile page, expand ALL hidden career seasons, then return
-    BeautifulSoup over the fully-rendered DOM.
+    Load a player profile page and wait for BOTH the heading AND the career
+    history section before reading the DOM.
+
+    The career section is rendered by a separate Vue component that fires
+    after the heading is already visible.  Waiting only for 'player-heading'
+    (the original behaviour) means BeautifulSoup often reads the page before
+    the history table exists in the DOM.
 
     Changes vs. original:
-      - Secondary WebDriverWait for 'history-season-line' (career section
-        loads after the heading via a separate Vue component).
-      - _expand_career_history() JS-clicks "Afficher les 5 suivants" until
-        all seasons are visible before reading page source.
+      - extra_wait raised from 1.5 → 3.0 s
+      - secondary WebDriverWait for 'history-season-line' added
     """
     try:
         time.sleep(delay)
         driver.get(url)
 
-        # Wait for player heading
+        # Primary wait: heading
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CLASS_NAME, wait_class))
         )
 
-        # Wait for career history table
+        # Secondary wait: career history table
         try:
             WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located(
@@ -212,10 +187,8 @@ def get_soup_simple(
                 )
             )
         except TimeoutException:
-            logger.debug(f"No history-season-line on {url} — player may have no career data")
-
-        # Expand hidden seasons
-        _expand_career_history(driver)
+            # Player may genuinely have no Top 14 career history yet
+            logger.debug(f"No history-season-line on {url} — may have no career data")
 
         time.sleep(extra_wait)
         return BeautifulSoup(driver.page_source, "html.parser")
@@ -473,38 +446,58 @@ def extract_career_data(soup: BeautifulSoup) -> dict:
     """
     Extract season-by-season career data from the player profile page.
 
-    CONFIRMED DOM STRUCTURE
-    -----------------------
-    div.history-season-list
-      ├── div.history-season-list__season-column    ← LEFT: season labels only
-      │     ├── div.--header-line.--season-line     ("Saison" header)
-      │     ├── div.--season-line                   ("2025-2026")
-      │     ├── div.--season-line                   ("2024-2025")
-      │     └── ...  one per season, newest first
-      │
-      └── div.history-season-list__other-columns    ← RIGHT: stats rows
-            ├── div.--header-line                   (column headers)
-            ├── div.history-season-line             (data row for season 0)
-            ├── div.history-season-line             (data row for season 1)
-            └── ...
+    CONFIRMED DOM STRUCTURE (from diagnostic on Charles Ollivon's page)
+    -------------------------------------------------------------------
+    The career history lives inside:
+        div.history-season-list
+          ├── div.history-season-list__season-column   ← LEFT: season labels only
+          │     ├── div.history-season-line--header-line--season-line  (header "Saison")
+          │     ├── div.history-season-line--season-line  ("2025-2026")
+          │     ├── div.history-season-line--season-line  ("2024-2025")
+          │     └── ... one per season, in descending order
+          │
+          └── div.history-season-list__other-columns   ← RIGHT: stats rows
+                ├── div.history-season-line--header-line  (column headers)
+                ├── div.history-season-line  (data row for season N)
+                ├── div.history-season-line  (data row for season N-1, or 2nd
+                │                             club if player changed mid-season)
+                └── ...
 
-    Season labels (left) and data rows (right) are in SEPARATE DOM branches
-    correlated by position: label[0] → row[0], label[1] → row[1], …
+    Season labels and data rows are in SEPARATE DOM branches and must be
+    correlated by position.  The left column has exactly one --season-line per
+    season (plus the header).  The right column has one or more plain data rows
+    per season.
 
-    Data row __content cell order (confirmed, 11 cells):
-        [0] Division  [1] Club  [2] Matches  [3] Minutes jouées  [4] Points …
+    COLUMN ORDER in each right-column data row (11 __content cells):
+        [0]  Division        e.g. "TOP 14"
+        [1]  Club            e.g. "RC Toulon"
+        [2]  Matches         e.g. "9"
+        [3]  Minutes jouées  e.g. "508"
+        [4]  Points
+        [5]  Essais
+        [6]  Pénalité
+        [7]  Drop marqués
+        [8]  Cartons jaunes
+        [9]  Cartons oranges
+        [10] Cartons rouges
 
-    MULTI-CLUB: two data rows for same season → keep the one with most minutes.
-    PAGINATION: _expand_career_history() has already clicked "Afficher les 5
-                suivants" before this runs, so all seasons are in the DOM.
+    MULTI-CLUB SEASONS
+    ------------------
+    If a player played for two clubs in the same season there will be two
+    consecutive data rows for that season.  We keep the one with the most
+    minutes played (= primary role).
 
-    Returns dict with "{season}_team" / "{season}_avg_min" for target seasons.
+    Returns:
+        Dict with keys like "2024-2025_team" and "2024-2025_avg_min".
+        Missing / non-Top-14 seasons are omitted (become NaN in DataFrame).
     """
     result: dict = {}
 
     try:
-        # ── Left column: ordered season labels ───────────────────────────────
-        left_col = soup.find("div", class_="history-season-list__season-column")
+        # ── Step 1: read season labels from LEFT column, in DOM order ────────
+        left_col = soup.find(
+            "div", class_="history-season-list__season-column"
+        )
         if not left_col:
             logger.warning("history-season-list__season-column not found")
             return result
@@ -514,18 +507,23 @@ def extract_career_data(soup: BeautifulSoup) -> dict:
             "div", class_=lambda c: c and "history-season-line" in c
         ):
             classes = line.get("class", [])
+            # Skip the very first row which is the "Saison" header
             if "history-season-line--header-line" in classes:
                 continue
             if "history-season-line--season-line" in classes:
-                cell = line.find("div", class_="history-season-cell__content")
+                cell = line.find(
+                    "div", class_="history-season-cell__content"
+                )
                 label = cell.get_text(strip=True) if cell else ""
                 if label:
                     season_labels.append(label)
 
-        logger.debug(f"Season labels: {season_labels}")
+        logger.debug(f"Season labels found: {season_labels}")
 
-        # ── Right column: plain data rows ─────────────────────────────────────
-        right_col = soup.find("div", class_="history-season-list__other-columns")
+        # ── Step 2: read data rows from RIGHT column ──────────────────────────
+        right_col = soup.find(
+            "div", class_="history-season-list__other-columns"
+        )
         if not right_col:
             logger.warning("history-season-list__other-columns not found")
             return result
@@ -535,30 +533,73 @@ def extract_career_data(soup: BeautifulSoup) -> dict:
             "div", class_=lambda c: c and "history-season-line" in c
         ):
             classes = line.get("class", [])
+            # Skip the column-header row
             if "history-season-line--header-line" in classes:
                 continue
+            # Skip any stray season-line rows (shouldn't exist here, but safe)
             if "history-season-line--season-line" in classes:
                 continue
             data_rows.append(line)
 
-        logger.debug(f"Data rows: {len(data_rows)}")
+        logger.debug(f"Data rows found: {len(data_rows)}")
 
-        # ── Pair seasons → data rows (1-to-1; extras → last season) ──────────
+        # ── Step 3: correlate seasons → data rows ─────────────────────────────
+        # Each season has at least one data row.  Multiple rows happen when a
+        # player changed clubs mid-season.  We detect boundaries by counting:
+        # since the page lists seasons in descending order and each season
+        # always has at least one data row, we assign data rows round-robin
+        # until we reach a row whose Division/Club belongs to the next season.
+        #
+        # Simpler and more robust: just pair seasons 1-to-1 with data rows,
+        # but collect ALL consecutive rows that are TOP 14 after assigning.
+        # The diagnostic shows Ollivon has 5 season labels and 5 data rows —
+        # one-to-one.  We handle the multi-club case by collecting until the
+        # row count matches the season count.
+
+        # Build (season_label → [data_row, ...]) mapping.
+        # Strategy: assign rows to seasons in order.  If a season has multiple
+        # clubs (we can't know up front), we'll detect it by checking whether
+        # consecutive rows in the right column belong to the same season.
+        # Because there's no explicit marker, we use a simple 1-to-1 default
+        # and fall back to scanning all rows if that leaves some unassigned.
+
+        # Robust approach: group consecutive data rows by season using the
+        # season-column as the authoritative list.
+        # We know:  len(data_rows) >= len(season_labels)  (extra rows = extra clubs)
+        # Walk data_rows; for each season consume rows until a Division change
+        # signals the next season.  Since we can't detect season boundaries
+        # within the right column alone, we use row count ratio instead.
+
+        # SIMPLEST CORRECT APPROACH given confirmed structure:
+        # The right column rows are in the same top-to-bottom order as the
+        # season labels.  We just need to know how many rows belong to each
+        # season.  Since we can't read that from the right column alone, we
+        # consume one row per season by default and collect extras by checking
+        # whether the next row is still TOP 14 before a new season label would
+        # start.  For most players this is 1:1.
+
         season_to_rows: dict[str, list] = {s: [] for s in season_labels}
         row_iter = iter(data_rows)
+
         for season in season_labels:
             try:
-                season_to_rows[season].append(next(row_iter))
+                row = next(row_iter)
+                season_to_rows[season].append(row)
             except StopIteration:
                 break
-        last_season = season_labels[-1] if season_labels else None
-        for leftover in row_iter:
-            if last_season:
-                season_to_rows[last_season].append(leftover)
 
-        # ── Extract stats for target seasons ──────────────────────────────────
+        # Assign any leftover rows to the last-seen season
+        # (handles mid-season club changes)
+        last_season = season_labels[-1] if season_labels else None
+        for row in row_iter:
+            if last_season:
+                season_to_rows[last_season].append(row)
+
+        # ── Step 4: extract stats per target season ───────────────────────────
         for season, rows in season_to_rows.items():
-            if season not in TARGET_SEASONS or not rows:
+            if season not in TARGET_SEASONS:
+                continue
+            if not rows:
                 continue
 
             best_minutes = -1
@@ -566,7 +607,10 @@ def extract_career_data(soup: BeautifulSoup) -> dict:
             best_avg = None
 
             for row in rows:
-                cells = row.find_all("div", class_="history-season-cell__content")
+                cells = row.find_all(
+                    "div", class_="history-season-cell__content"
+                )
+                # Need at least Division, Club, Matches, Minutes
                 if len(cells) < 4:
                     continue
 
@@ -592,7 +636,8 @@ def extract_career_data(soup: BeautifulSoup) -> dict:
                     best_team = club_name
                     best_avg = (
                         round(minutes_played / matches_played, 1)
-                        if matches_played > 0 else None
+                        if matches_played > 0
+                        else None
                     )
 
             if best_team is not None:

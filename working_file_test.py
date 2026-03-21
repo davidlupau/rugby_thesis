@@ -9,7 +9,7 @@ def main():
     # -------------------------------------------------------------------------
     # 1. Load test match list
     # -------------------------------------------------------------------------
-    # df_matches_list = load_dataset("test_data", "matches_list_sample.csv")
+    df_matches_list = load_dataset("test_data", "matches_list_sample_short.csv")
 
     # -------------------------------------------------------------------------
     # 2. Scrape regular season matches
@@ -35,14 +35,9 @@ def main():
     #    → produces: data/processed/player_urls.csv         (URLs only)
     #    → produces: data/processed/players.csv         (name + nationality + season stats)
     # -------------------------------------------------------------------------
-    # df_players_info = scrape_player_registry(df_matches_list)
-    # print(f"Successfully scraped info for {len(df_players_info)} players")
+    df_players_info = scrape_player_registry(df_matches_list)
+    print(f"Successfully scraped info for {len(df_players_info)} players")
     
-    # Scrape international player call-ups from Wikipedia
-    print("Scraping international player call-ups from Wikipedia...")
-    df_international_window = load_dataset("reference", "international_windows.csv")
-    df_international_players = scrape_international_windows(df_international_window)
-
 
 
 if __name__ == "__main__":

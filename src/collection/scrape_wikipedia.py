@@ -53,6 +53,8 @@ def scrape_international_windows(df_windows: pd.DataFrame) -> pd.DataFrame:
     """
     all_records = []
     
+    print("Scraping international player call-ups from Wikipedia...")
+    
     for _, row in df_windows.iterrows():
         url = row['url']
         window_id = row['int_window_id']

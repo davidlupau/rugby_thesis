@@ -1,11 +1,40 @@
-first_name,last_name,nationality,player_url,2017-2018_team,2017-2018_avg_min,2018-2019_team,2018-2019_avg_min,2021-2022_team,2021-2022_avg_min,2022-2023_team,2022-2023_avg_min,2023-2024_team,2023-2024_avg_min,2024-2025_team,2024-2025_avg_min
-Georges Henri,COLOMBE REAZEL,France,https://top14.lnr.fr/joueur/1009-georges-henri-colombe-reazel,,,,,Racing 92,41.1,,,,,,
-Noe,DELLA SCHIAVA,France,https://top14.lnr.fr/joueur/1013-noe-della-schiava,,,,,Stade Rochelais,12.0,,,,,,
-Tavite,VEREDAMU,France,https://top14.lnr.fr/joueur/1047-tavite-veredamu,,,,,LOU Rugby,60.4,,,,,,
-Léo,BERDEU,France,https://top14.lnr.fr/joueur/1081-leo-berdeu,,,,,LOU Rugby,57.9,,,,,,
-Johannes,JONKER,Afrique du Sud,https://top14.lnr.fr/joueur/10917-johannes-jonker,Montpellier Hérault Rugby,51.4,,,,,,,,,,
-Brandon Julio Tiute,NANSEN,Nouvelle Zélande,https://top14.lnr.fr/joueur/10988-brandon-julio-tiute-nansen,,,,,,,,,,,,
-Mateo,GARCIA,France,https://top14.lnr.fr/joueur/11027-mateo-garcia,,,,,Union Bordeaux-Bègles,17.9,,,,,,
-Patrick,SOBELA,France,https://top14.lnr.fr/joueur/1103-patrick-sobela,,,,,,,,,,,,
-Benjamin,WHITE,Grande-Bretagne,https://top14.lnr.fr/joueur/11845-benjamin-white,,,,,,,,,RC Toulon,40.9,,
-Ignacio,RUIZ,Italie,https://top14.lnr.fr/joueur/11989-ignacio-ruiz,,,,,,,,,USA Perpignan,44.9,,
+first_name,last_name,full_name,nationality,player_url,2017-2018_team,2017-2018_avg_min,2018-2019_team,2018-2019_avg_min,2021-2022_team,2021-2022_avg_min,2022-2023_team,2022-2023_avg_min,2023-2024_team,2023-2024_avg_min,2024-2025_team,2024-2025_avg_min
+Tavite,VEREDAMU,Tavite Veredamu,France,https://top14.lnr.fr/joueur/1047-tavite-veredamu,,,,,LOU Rugby,60.4,LOU Rugby,61.4,USA Perpignan,71.4,USA Perpignan,72.2
+Patrick,SOBELA,Patrick Sobela,France,https://top14.lnr.fr/joueur/1103-patrick-sobela,Oyonnax Rugby,53.3,LOU Rugby,58.8,LOU Rugby,59.4,LOU Rugby,47.8,USA Perpignan,57.6,USA Perpignan,45.0
+Benjamin,WHITE,Benjamin White,Grande-Bretagne,https://top14.lnr.fr/joueur/11845-benjamin-white,,,,,,,,,RC Toulon,40.9,RC Toulon,39.3
+Ignacio,RUIZ,Ignacio Ruiz,Italie,https://top14.lnr.fr/joueur/11989-ignacio-ruiz,,,,,,,,,USA Perpignan,44.9,USA Perpignan,53.4
+Nemo Gunther,ROELOFSE,Nemo Gunther Roelofse,Afrique du Sud,https://top14.lnr.fr/joueur/1784-nemo-gunther-roelofse,,,,,Stade Français Paris,35.6,Stade Français Paris,35.4,USA Perpignan,43.6,USA Perpignan,26.9
+Posolo,TUILAGI,Posolo Tuilagi,Samoa,https://top14.lnr.fr/joueur/1952-posolo-tuilagi,,,,,,,USA Perpignan,37.8,USA Perpignan,57.6,USA Perpignan,38.6
+Joaquin,OVIEDO,Joaquin Oviedo,Argentine,https://top14.lnr.fr/joueur/1955-joaquin-oviedo,,,,,USA Perpignan,53.8,USA Perpignan,50.4,USA Perpignan,60.3,USA Perpignan,58.7
+Jeronimo,DE LA FUENTE,Jeronimo De La Fuente,Argentine,https://top14.lnr.fr/joueur/1958-jeronimo-de-la-fuente,,,,,USA Perpignan,69.9,USA Perpignan,72.6,USA Perpignan,72.2,USA Perpignan,73.2
+Sadek,DEGHMACHE,Sadek Deghmache,France,https://top14.lnr.fr/joueur/1973-sadek-deghmache,,,USA Perpignan,29.6,USA Perpignan,42.6,USA Perpignan,,USA Perpignan,42.0,USA Perpignan,34.0
+Mathieu,ACEBES,Mathieu Acebes,France,https://top14.lnr.fr/joueur/1980-mathieu-acebes,,,USA Perpignan,72.1,USA Perpignan,70.7,USA Perpignan,,USA Perpignan,48.6,,
+Tristan,LABOUTELEY,Tristan Labouteley,France,https://top14.lnr.fr/joueur/1982-tristan-labouteley,,,USA Perpignan,58.4,USA Perpignan,70.5,USA Perpignan,,USA Perpignan,58.7,USA Perpignan,64.9
+Tom,ECOCHARD,Tom Ecochard,France,https://top14.lnr.fr/joueur/1987-tom-ecochard,,,USA Perpignan,43.3,USA Perpignan,49.0,USA Perpignan,,USA Perpignan,52.7,USA Perpignan,52.1
+Giorgi,TETRASHVILI,Giorgi Tetrashvili,Géorgie,https://top14.lnr.fr/joueur/1990-giorgi-tetrashvili,SU Agen,32.3,SU Agen,42.7,USA Perpignan,44.6,USA Perpignan,38.8,USA Perpignan,47.0,USA Perpignan,36.5
+Alivereti Uqueqe,DUGUIVALU,Alivereti Uqueqe Duguivalu,Fidji,https://top14.lnr.fr/joueur/2001-alivereti-uqueqe-duguivalu,,,USA Perpignan,47.5,USA Perpignan,56.4,USA Perpignan,62.2,USA Perpignan,63.8,USA Perpignan,65.1
+Jake Aron,MCINTYRE,Jake Aron Mcintyre,Australie,https://top14.lnr.fr/joueur/2005-jake-aron-mcintyre,SU Agen,66.2,SU Agen,51.2,,,USA Perpignan,,USA Perpignan,71.2,USA Perpignan,49.7
+Léon Seilala,LAM,Léon Seilala Lam,Samoa américain,https://top14.lnr.fr/joueur/2008-leon-seilala-lam,,,USA Perpignan,0.0,USA Perpignan,52.2,USA Perpignan,,USA Perpignan,40.9,USA Perpignan,31.9
+Lucas,VELARTE,Lucas Velarte,France,https://top14.lnr.fr/joueur/2025-lucas-velarte,,,,,USA Perpignan,37.4,USA Perpignan,,USA Perpignan,36.0,USA Perpignan,56.8
+Cornell Gerhard,DU PREEZ,Cornell Gerhard Du Preez,Grande-Bretagne,https://top14.lnr.fr/joueur/2281-cornell-gerhard-du-preez,,,,,RC Toulon,55.5,RC Toulon,66.7,RC Toulon,60.1,,
+Kieran,BROOKES,Kieran Brookes,Grande-Bretagne,https://top14.lnr.fr/joueur/2282-kieran-brookes,,,,,RC Toulon,43.3,RC Toulon,37.2,RC Toulon,30.5,USA Perpignan,50.1
+Gaël,DREAN,Gaël Drean,France,https://top14.lnr.fr/joueur/2300-gael-drean,,,,,,,RC Toulon,67.2,RC Toulon,76.5,RC Toulon,75.9
+Aymeric,LUC,Aymeric Luc,France,https://top14.lnr.fr/joueur/2336-aymeric-luc,,,,,RC Toulon,70.0,RC Toulon,70.5,RC Toulon,80.0,Section Paloise,75.1
+Baptiste,SERIN,Baptiste Serin,France,https://top14.lnr.fr/joueur/2352-baptiste-serin,Union Bordeaux-Bègles,57.9,Union Bordeaux-Bègles,60.3,RC Toulon,65.3,RC Toulon,54.6,RC Toulon,53.7,RC Toulon,56.4
+Christopher,TOLOFUA,Christopher Tolofua,France,https://top14.lnr.fr/joueur/2354-christopher-tolofua,,,,,RC Toulon,55.3,RC Toulon,,Montpellier Hérault Rugby,,Montpellier Hérault Rugby,34.2
+Charles,OLLIVON,Charles Ollivon,France,https://top14.lnr.fr/joueur/2355-charles-ollivon,,,RC Toulon,76.7,RC Toulon,64.3,RC Toulon,72.5,RC Toulon,70.1,RC Toulon,63.0
+Jean Baptiste,GROS,Jean Baptiste Gros,France,https://top14.lnr.fr/joueur/2358-jean-baptiste-gros,RC Toulon,26.0,RC Toulon,42.1,RC Toulon,55.0,RC Toulon,41.8,RC Toulon,41.8,RC Toulon,46.9
+Gabin,VILLIERE,Gabin Villiere,France,https://top14.lnr.fr/joueur/2360-gabin-villiere,,,,,RC Toulon,80.0,,,RC Toulon,78.4,RC Toulon,68.2
+Beka,GIGASHVILI,Beka Gigashvili,Géorgie,https://top14.lnr.fr/joueur/2362-beka-gigashvili,,,FC Grenoble Rugby,37.1,RC Toulon,61.4,RC Toulon,50.2,RC Toulon,54.8,RC Toulon,51.3
+Teddy,BAUBIGNY,Teddy Baubigny,France,https://top14.lnr.fr/joueur/2373-teddy-baubigny,Racing 92,16.2,Racing 92,29.6,Racing 92,40.5,RC Toulon,45.0,RC Toulon,56.0,RC Toulon,46.7
+Matthias,HALAGAHU,Matthias Halagahu,France,https://top14.lnr.fr/joueur/2384-matthias-halagahu,,,,,RC Toulon,30.8,RC Toulon,,RC Toulon,40.2,RC Toulon,51.8
+Duncan,PAIA'AUA,Duncan Paia'aua,Australie,https://top14.lnr.fr/joueur/2385-duncan-paiaaua,,,,,RC Toulon,74.1,RC Toulon,72.8,RC Toulon,71.7,RC Toulon,61.6
+Adrien,WARION,Adrien Warion,France,https://top14.lnr.fr/joueur/2388-adrien-warion,,,,,RC Toulon,19.2,RC Toulon,17.9,RC Toulon,30.2,USA Perpignan,57.4
+Bruce,DEVAUX,Bruce Devaux,France,https://top14.lnr.fr/joueur/2389-bruce-devaux,,,RC Toulon,28.4,RC Toulon,39.4,RC Toulon,33.5,RC Toulon,33.2,USA Perpignan,33.6
+Komiti Junior,ALAINUUESE,Komiti Junior Alainuuese,Samoa occidental,https://top14.lnr.fr/joueur/2391-komiti-junior-alainuuese,,,RC Toulon,64.1,RC Toulon,57.6,RC Toulon,71.7,RC Toulon,55.9,RC Toulon,51.1
+Selevasio,TOLOFUA,Selevasio Tolofua,France,https://top14.lnr.fr/joueur/2446-selevasio-tolofua,Stade Toulousain,38.4,Stade Toulousain,43.2,Stade Toulousain,56.8,Stade Toulousain,42.1,RC Toulon,51.4,RC Toulon,37.5
+Pietro,CECCARELLI,Pietro Ceccarelli,France,https://top14.lnr.fr/joueur/398-pietro-ceccarelli,Oyonnax Rugby,24.4,,,CA Brive,40.1,CA Brive,,USA Perpignan,46.6,USA Perpignan,26.7
+Enzo,HERVE,Enzo Herve,France,https://top14.lnr.fr/joueur/427-enzo-herve,CA Brive,65.0,,,CA Brive,61.4,CA Brive,39.8,RC Toulon,50.8,RC Toulon,38.8
+Setariki,TUICUVU,Setariki Tuicuvu,Fidji,https://top14.lnr.fr/joueur/429-setariki-tuicuvu,ASM Clermont,47.4,ASM Clermont,68.0,CA Brive,72.5,CA Brive,,RC Toulon,60.8,RC Toulon,53.5
+Esteban,ABADIE,Esteban Abadie,France,https://top14.lnr.fr/joueur/431-esteban-abadie,Racing 92,13.0,,,CA Brive,61.2,CA Brive,,RC Toulon,74.1,RC Toulon,74.3
+Tommaso,ALLAN,Tommaso Allan,Italie,https://top14.lnr.fr/joueur/9603-tommaso-allan,,,,,,,,,USA Perpignan,70.6,USA Perpignan,62.7
