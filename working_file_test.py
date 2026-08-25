@@ -9,18 +9,18 @@ def main():
     # -------------------------------------------------------------------------
     # 1. Load test match list
     # -------------------------------------------------------------------------
-    df_matches_list = load_dataset("test_data", "matches_list_sample_short.csv")
+    df_matches_list = load_dataset("test_data", "matches_list_sample.csv")
 
     # -------------------------------------------------------------------------
     # 2. Scrape regular season matches
     #    → produces: data/processed/regular_season_stats.csv
     #    → produces: data/processed/player_urls.csv  (one URL per player, deduplicated)
     # -------------------------------------------------------------------------
-    #print("Scraping statistics for regular season matches...")
-    #df_regular_season_stats = scrape_lnr(df_matches_list)
+    print("Scraping statistics for regular season matches...")
+    df_regular_season_stats = scrape_lnr(df_matches_list)
 
-    #print(f"Regular season stats DataFrame: {len(df_regular_season_stats)} rows, "
-    #      f"columns: {list(df_regular_season_stats.columns)}")
+    print(f"Regular season stats DataFrame: {len(df_regular_season_stats)} rows, "
+          f"columns: {list(df_regular_season_stats.columns)}")
 
     # -------------------------------------------------------------------------
     # 3. Scrape playoff matches (commented out for test — uncomment for full run)
@@ -35,8 +35,8 @@ def main():
     #    → produces: data/processed/player_urls.csv         (URLs only)
     #    → produces: data/processed/players.csv         (name + nationality + season stats)
     # -------------------------------------------------------------------------
-    df_players_info = scrape_player_registry(df_matches_list)
-    print(f"Successfully scraped info for {len(df_players_info)} players")
+    #df_players_info = scrape_player_registry(df_matches_list)
+    #print(f"Successfully scraped info for {len(df_players_info)} players")
     
 
 

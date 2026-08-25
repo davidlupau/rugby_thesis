@@ -1,16 +1,4 @@
 ﻿match_id,season,round,venue,home_team,away_team,url
-8289,2017-2018,27,Stade Mayol,RC Toulon,LOU Rugby,https://top14.lnr.fr/feuille-de-match/2017-2018/barrages/8289-toulon-lyon
-8290,2017-2018,27,Stade Ernest-Wallon,Stade Toulousain,Castres Olympique,https://top14.lnr.fr/feuille-de-match/2017-2018/barrages/8290-toulouse-castres
-8291,2017-2018,28,Parc OL,Montpellier Hérault Rugby ,LOU Rugby,https://top14.lnr.fr/feuille-de-match/2017-2018/demi-finales/8291-montpellier-lyon
-8292,2017-2018,28,Parc OL,Racing 92,Castres Olympique,https://top14.lnr.fr/feuille-de-match/2017-2018/demi-finales/8292-racing-92-castres
-8293,2017-2018,29,Stade de France,Montpellier Hérault Rugby ,Castres Olympique,https://top14.lnr.fr/feuille-de-match/2017-2018/finale/8293-montpellier-castres
-8288,2017-2018,30,Stade des Alpes,FC Grenoble Rugby,Oyonnax Rugby,https://top14.lnr.fr/feuille-de-match/2017-2018/match-daccession/8288-grenoble-oyonnax
-8723,2018-2019,27,Paris La Défense Arena,Racing 92,Stade Rochelais,https://top14.lnr.fr/feuille-de-match/2018-2019/barrages/8723-racing-92-la-rochelle
-8724,2018-2019,27,Stade de Gerland,LOU Rugby,Montpellier Hérault Rugby ,https://top14.lnr.fr/feuille-de-match/2018-2019/barrages/8724-lyon-montpellier
-8726,2018-2019,28,Stade Matmut-Atlantique,Stade Toulousain,Stade Rochelais,https://top14.lnr.fr/feuille-de-match/2018-2019/demi-finales/8726-toulouse-la-rochelle
-8727,2018-2019,28,Stade Matmut-Atlantique,ASM Clermont,LOU Rugby,https://top14.lnr.fr/feuille-de-match/2018-2019/demi-finales/8727-clermont-lyon
-8728,2018-2019,29,Stade de France,Stade Toulousain,ASM Clermont,https://top14.lnr.fr/feuille-de-match/2018-2019/finale/8728-toulouse-clermont
-8725,2018-2019,30,Stade Amédée-Domenech,CA Brive,FC Grenoble Rugby,https://top14.lnr.fr/feuille-de-match/2018-2019/match-daccession/8725-brive-grenoble
 9923,2021-2022,27,Stade Ernest-Wallon,Stade Toulousain,Stade Rochelais,https://top14.lnr.fr/feuille-de-match/2021-2022/barrages/9923-toulouse-la-rochelle
 9924,2021-2022,27,Stade Chaban-Delmas,Union Bordeaux-Bègles,Racing 92,https://top14.lnr.fr/feuille-de-match/2021-2022/barrages/9924-bordeaux-begles-racing-92
 9925,2021-2022,28,Allianz Riviera,Castres Olympique,Stade Toulousain,https://top14.lnr.fr/feuille-de-match/2021-2022/demi-finales/9925-castres-toulouse
@@ -35,3 +23,9 @@
 11055,2024-2025,28,Parc OL,Union Bordeaux-Bègles,RC Toulon,https://top14.lnr.fr/feuille-de-match/2024-2025/demi-finale/11055-bordeaux-begles-toulon
 11056,2024-2025,29,Stade de France,Stade Toulousain,Union Bordeaux-Bègles,https://top14.lnr.fr/feuille-de-match/2024-2025/finale/11056-toulouse-bordeaux-begles
 11057,2024-2025,30,Stade des Alpes,FC Grenoble Rugby,USA Perpignan,https://top14.lnr.fr/feuille-de-match/2024-2025/access-top-14/11057-grenoble-perpignan
+11795,2025-2026,27,Stade du Hameau,Section Paloise,Racing 92,https://top14.lnr.fr/feuille-de-match/2025-2026/barrage/11795-pau-racing-92
+11796,2025-2026,27,Stade Jean-Bouin,Stade Français Paris,Stade Rochelais,https://top14.lnr.fr/feuille-de-match/2025-2026/barrage/11796-paris-la-rochelle
+11797,2025-2026,28,Orange Velodrome,Stade Toulousain,Racing 92,https://top14.lnr.fr/feuille-de-match/2025-2026/demi-finale/11797-toulouse-racing-92
+11798,2025-2026,28,Orange Velodrome,Montpellier Hérault Rugby ,Stade Français Paris,https://top14.lnr.fr/feuille-de-match/2025-2026/demi-finale/11798-montpellier-paris
+11800,2025-2026,29,Stade de France,Stade Toulousain,Montpellier Hérault Rugby ,https://top14.lnr.fr/feuille-de-match/2025-2026/finale/11800-toulouse-montpellier
+11799,2025-2026,30,Stade Maurice David,Provence Rugby,USA Perpignan,https://top14.lnr.fr/feuille-de-match/2025-2026/access-top-14/11799-provence-rugby-perpignan

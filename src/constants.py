@@ -21,12 +21,11 @@ SCRAPING_CONFIG = {
 
 # List of seasons
 SEASONS = [
-    "2017-2018",
-    "2018-2019", 
     "2021-2022",
     "2022-2023",
     "2023-2024",
-    "2024-2025"
+    "2024-2025",
+    "2025-2026"
 ]
 
 # Translations of terms from LNR website
