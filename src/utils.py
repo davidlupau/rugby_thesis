@@ -11,8 +11,21 @@ consistent behavior regardless of where the script is executed from.
 """
 
 import pandas as pd
+import re
 from pathlib import Path
-from typing import Union, Dict
+from typing import Optional, Union, Dict
+
+
+def extract_player_id(player_url: str) -> Optional[str]:
+    """
+    Extract the canonical numeric player ID from an LNR profile URL.
+
+    LNR serves the same player from multiple domains (e.g. prod2.lnr.fr and
+    top14.lnr.fr) with the same numeric ID — dedup must key on this ID, not
+    the full URL string, or the same player gets queued/scraped twice.
+    """
+    match = re.search(r'/joueur/(\d+)-', player_url)
+    return match.group(1) if match else None
 
 
 def load_dataset(folder_name: str, file_name: str) -> pd.DataFrame:

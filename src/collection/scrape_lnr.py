@@ -35,7 +35,8 @@ import sys
 
 # Add the src directory to the path so we can import utils
 sys.path.append(str(Path(__file__).parent.parent))
-from utils import save_to_csv
+from utils import save_to_csv, extract_player_id
+from constants import is_confirmed_dead
 
 try:
     from selenium import webdriver
@@ -709,12 +710,20 @@ def scrape_lnr(
                 ]
                 missing_fields = [f for f in critical if f not in match_data]
                 if missing_fields:
+                    status = (
+                        'confirmed_no_data'
+                        if is_confirmed_dead(match_id, season, round_num)
+                        else 'timeout_unverified'
+                    )
                     incomplete.append({
                         'match_id':       match_id,
+                        'season':         season,
+                        'round':          round_num,
                         'missing_fields': ', '.join(missing_fields),
                         'fields_scraped': len(match_data),
+                        'status':         status,
                     })
-                    logger.warning(f"[{match_id}] Incomplete — missing: {missing_fields}")
+                    logger.warning(f"[{match_id}] Incomplete ({status}) — missing: {missing_fields}")
 
             except TimeoutError as e:
                 logger.error(f"[{match_id}] Timeout: {e}")
@@ -737,13 +746,37 @@ def scrape_lnr(
 
     # --- Save final outputs ---
     results_df = pd.DataFrame(results)
+    if not results_df.empty:
+        # match_id is built as a str in scrape_one_match(); cast back to int
+        # so this return value's dtype matches every CSV-loaded DataFrame
+        # elsewhere in the pipeline (pd.read_csv infers int64). Otherwise a
+        # match_id.isin(...) comparison against an int set silently matches
+        # nothing instead of raising, e.g. in the retry-merge step.
+        results_df["match_id"] = results_df["match_id"].astype(int)
 
     result_path = save_to_csv(results_df, output_csv, "processed")
     if result_path:
         logger.info(f"Saved {len(results_df)} match records to '{result_path}'")
 
     if all_player_urls:
-        urls_df = pd.DataFrame(sorted(all_player_urls), columns=["player_url"])
+        # Merge with any existing player_urls.csv (keyed by canonical player
+        # ID) instead of overwriting it — otherwise a partial run (e.g. a
+        # retry against a handful of matches) clobbers the full master list
+        # with just the URLs harvested in this one call.
+        merged_by_id = {}
+        existing_urls_path = Path(__file__).parent.parent.parent / "data" / "processed" / "player_urls.csv"
+        if existing_urls_path.exists():
+            existing = pd.read_csv(existing_urls_path)
+            for u in existing["player_url"].dropna():
+                pid = extract_player_id(u)
+                if pid:
+                    merged_by_id[pid] = u
+        for u in all_player_urls:
+            pid = extract_player_id(u)
+            if pid and pid not in merged_by_id:
+                merged_by_id[pid] = u
+
+        urls_df = pd.DataFrame(sorted(merged_by_id.values()), columns=["player_url"])
         urls_path = save_to_csv(urls_df, "player_urls.csv", "processed")
         if urls_path:
             logger.info(f"Saved {len(urls_df)} unique player URLs to '{urls_path}'")

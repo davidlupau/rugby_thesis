@@ -74,7 +74,7 @@ def load_playoff_matches():
         list: List of dictionaries containing playoff match information
     """
     try:
-        playoffs_df = load_dataset('processed', 'playoffs.csv')
+        playoffs_df = load_dataset('reference', 'playoffs.csv')
         
         if playoffs_df is None:
             return []

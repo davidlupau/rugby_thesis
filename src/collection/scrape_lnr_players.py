@@ -56,7 +56,7 @@ from bs4 import BeautifulSoup
 # Add the src directory to the path so we can import constants and utils
 sys.path.append(str(Path(__file__).parent.parent))
 from constants import SEASONS
-from utils import save_to_csv
+from utils import save_to_csv, extract_player_id
 
 try:
     from selenium import webdriver
@@ -78,6 +78,21 @@ except ImportError as e:
 # =============================================================================
 
 TARGET_SEASONS = SEASONS
+
+
+def _resolve_processed_path(filename: str) -> Path:
+    """
+    Resolve a bare filename (e.g. "players.csv") to its actual location in
+    data/processed/, matching where save_to_csv(..., "processed") writes it.
+    A path that already has a directory component is returned unchanged.
+    """
+    path = Path(filename)
+    if path.parent != Path('.'):
+        return path
+    project_root = Path(__file__).parent.parent.parent
+    return project_root / "data" / "processed" / filename
+
+
 
 LNR_BASE = "https://top14.lnr.fr"
 
@@ -306,14 +321,18 @@ def phase1_collect_urls(
     )
 
     # Optionally resume from existing file
-    known_urls: set = set()
-    if resume and Path(output_csv).exists():
-        existing = pd.read_csv(output_csv)
-        known_urls = set(existing["player_url"].dropna().tolist())
-        logger.info(f"  Resuming — {len(known_urls)} URLs already collected")
+    # seen_by_id maps canonical numeric player ID -> the URL kept for it,
+    # so the same player found under a different domain isn't re-queued.
+    seen_by_id: dict = {}
+    if resume and _resolve_processed_path(output_csv).exists():
+        existing = pd.read_csv(_resolve_processed_path(output_csv))
+        for url in existing["player_url"].dropna().tolist():
+            pid = extract_player_id(url)
+            if pid and pid not in seen_by_id:
+                seen_by_id[pid] = url
+        logger.info(f"  Resuming — {len(seen_by_id)} players already collected")
 
     driver = init_driver(headless=headless)
-    all_urls: set = set(known_urls)
 
     try:
         for idx, row in df.iterrows():
@@ -326,11 +345,14 @@ def phase1_collect_urls(
 
             try:
                 new_urls = collect_player_urls_from_match(driver, base_url, delay)
-                before = len(all_urls)
-                all_urls.update(new_urls)
+                before = len(seen_by_id)
+                for url in new_urls:
+                    pid = extract_player_id(url)
+                    if pid and pid not in seen_by_id:
+                        seen_by_id[pid] = url
                 logger.info(
-                    f"  +{len(all_urls) - before} new URLs "
-                    f"(total unique: {len(all_urls)})"
+                    f"  +{len(seen_by_id) - before} new players "
+                    f"(total unique: {len(seen_by_id)})"
                 )
             except Exception as exc:
                 logger.error(
@@ -342,7 +364,7 @@ def phase1_collect_urls(
         driver.quit()
         logger.info("WebDriver closed")
 
-    df_urls = pd.DataFrame(sorted(all_urls), columns=["player_url"])
+    df_urls = pd.DataFrame(sorted(seen_by_id.values()), columns=["player_url"])
     save_to_csv(df_urls, output_csv, "processed")
     logger.info(
         f"Phase 1 complete — {len(df_urls)} unique player URLs saved to {output_csv}"
@@ -661,9 +683,13 @@ def scrape_player_profile(driver, player_url: str, delay: float) -> Optional[dic
     return record
 
 
+MANUAL_REVIEW_THRESHOLD = 3  # fail this many times on the same URL -> flag for manual inspection
+
+
 def phase2_scrape_profiles(
     df_urls: pd.DataFrame,
     output_csv: str = "players.csv",
+    incomplete_csv: str = "players_incomplete.csv",
     delay: float = 1.5,
     headless: bool = True,
     resume: bool = True,
@@ -672,8 +698,15 @@ def phase2_scrape_profiles(
     Phase 2: Visit each player profile URL and build the player registry.
 
     Args:
-        df_urls:    DataFrame with a single column 'player_url'
-        output_csv: Path to save the player registry CSV
+        df_urls:        DataFrame with a single column 'player_url'
+        output_csv:      Path to save the player registry CSV
+        incomplete_csv:  Path to the persistent failure-tracking CSV (player_url,
+                         player_id, fail_count, status). Failures accumulate a
+                         fail_count across calls; a URL that keeps failing past
+                         MANUAL_REVIEW_THRESHOLD attempts is flagged
+                         "manual_review_needed" instead of "timeout", since a
+                         repeated failure on one specific page suggests something
+                         structurally different rather than a random network blip.
         delay:      Seconds between page requests
         headless:   Run Chrome headlessly
         resume:     If True and output_csv exists, skip already-scraped players
@@ -684,17 +717,29 @@ def phase2_scrape_profiles(
     urls = df_urls["player_url"].dropna().tolist()
     logger.info(f"Phase 2: scraping {len(urls)} player profiles")
 
-    # Resume: skip URLs already in the output file
-    already_done: set = set()
+    # Resume: skip URLs already in the output file (matched by canonical
+    # player ID, since the same player can appear under a different domain)
+    already_done_ids: set = set()
     existing_records: list = []
-    if resume and Path(output_csv).exists():
-        existing_df = pd.read_csv(output_csv)
+    if resume and _resolve_processed_path(output_csv).exists():
+        existing_df = pd.read_csv(_resolve_processed_path(output_csv))
         if "player_url" in existing_df.columns:
-            already_done = set(existing_df["player_url"].dropna().tolist())
+            already_done_ids = {
+                extract_player_id(u) for u in existing_df["player_url"].dropna()
+            }
+            already_done_ids.discard(None)
             existing_records = existing_df.to_dict("records")
-            logger.info(f"  Resuming — {len(already_done)} players already scraped")
+            logger.info(f"  Resuming — {len(already_done_ids)} players already scraped")
 
-    todo = [u for u in urls if u not in already_done]
+    # Prior fail counts, keyed by player_id, carried over from earlier runs
+    fail_counts: dict = {}
+    incomplete_path = _resolve_processed_path(incomplete_csv)
+    if incomplete_path.exists():
+        existing_incomplete = pd.read_csv(incomplete_path)
+        for _, r in existing_incomplete.iterrows():
+            fail_counts[str(r["player_id"])] = int(r["fail_count"])
+
+    todo = [u for u in urls if extract_player_id(u) not in already_done_ids]
     logger.info(f"  {len(todo)} players left to scrape")
 
     driver = init_driver(headless=headless)
@@ -703,17 +748,23 @@ def phase2_scrape_profiles(
     try:
         for i, url in enumerate(todo, start=1):
             logger.info(f"[{i}/{len(todo)}] {url}")
+            pid = extract_player_id(url)
             try:
                 record = scrape_player_profile(driver, url, delay)
                 if record:
                     records.append(record)
+                    fail_counts.pop(pid, None)
                     logger.info(
                         f"  → {record.get('first_name', '?')} "
                         f"{record.get('last_name', '?')} "
                         f"({record.get('nationality', '?')})"
                     )
                 else:
-                    logger.warning(f"  No data returned for {url}")
+                    fail_counts[pid] = fail_counts.get(pid, 0) + 1
+                    logger.warning(
+                        f"  No data returned for {url} "
+                        f"(fail_count={fail_counts[pid]})"
+                    )
 
                 # Save incrementally every 10 players so progress is not lost
                 if i % 10 == 0:
@@ -721,6 +772,7 @@ def phase2_scrape_profiles(
                     logger.info(f"  Checkpoint saved at {i} players")
 
             except Exception as exc:
+                fail_counts[pid] = fail_counts.get(pid, 0) + 1
                 logger.error(
                     f"  Error scraping {url}: {exc}\n{traceback.format_exc()}"
                 )
@@ -734,6 +786,34 @@ def phase2_scrape_profiles(
     logger.info(
         f"Phase 2 complete — {len(df_players)} players saved to {output_csv}"
     )
+
+    # Persist remaining failures so future retries build on this instead of
+    # re-deriving fail counts by hand each time.
+    url_by_pid = {extract_player_id(u): u for u in urls}
+    incomplete_records = []
+    manual_review_urls = []
+    for pid, count in fail_counts.items():
+        status = "manual_review_needed" if count >= MANUAL_REVIEW_THRESHOLD else "timeout"
+        if status == "manual_review_needed":
+            manual_review_urls.append(url_by_pid.get(pid, pid))
+        incomplete_records.append({
+            "player_url":  url_by_pid.get(pid, ""),
+            "player_id":   pid,
+            "fail_count":  count,
+            "status":      status,
+        })
+    df_incomplete = pd.DataFrame(
+        incomplete_records, columns=["player_url", "player_id", "fail_count", "status"]
+    )
+    save_to_csv(df_incomplete, incomplete_csv, "processed")
+    logger.info(f"  {len(df_incomplete)} players still failing, saved to {incomplete_csv}")
+    if manual_review_urls:
+        logger.warning(
+            f"⚠️  {len(manual_review_urls)} player(s) failed "
+            f"{MANUAL_REVIEW_THRESHOLD}+ times — needs manual inspection: "
+            f"{manual_review_urls}"
+        )
+
     return df_players
 
 
@@ -806,9 +886,9 @@ def scrape_player_registry(
         players_df = scrape_player_registry(df_matches_list)
     """
     # --- Phase 1 ---
-    if resume and Path(urls_csv).exists():
+    if resume and _resolve_processed_path(urls_csv).exists():
         logger.info(f"Loading existing player URLs from {urls_csv}")
-        df_urls = pd.read_csv(urls_csv)
+        df_urls = pd.read_csv(_resolve_processed_path(urls_csv))
         logger.info(f"  {len(df_urls)} URLs loaded")
     else:
         df_urls = phase1_collect_urls(
