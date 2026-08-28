@@ -32,30 +32,26 @@ SEASONS = [
 TRANSLATIONS = {
 }
 
-# Matches verified against the live LNR site to have no stats published at all
-# (as opposed to a scraper timeout that might succeed on retry).
+# Match_ids individually verified (by a human, against the live site) to
+# have no stats published at all. This is NOT inferred from season/round
+# proximity — a match sitting inside a range where other matches are dead
+# is not evidence about that specific match. Some 2022-2023 R10-R18 matches
+# (e.g. 67, 69, 70) were previously mislabeled this way and turned out to
+# have complete stats; they were just failing on scraper timeouts.
 CONFIRMED_DEAD_MATCH_IDS = {9922, 11057, 11795, 11796, 11797, 11798, 11800}
 
 
-def is_confirmed_dead(match_id, season, round_num) -> bool:
+def is_confirmed_dead(match_id) -> bool:
     """
-    True if a match is known to have no stats on the live site and should
-    not be retried after a scraper timeout/incomplete result.
+    True only for match_ids individually pre-verified as having no stats.
 
-    Covers two cases:
-      - explicit match_ids verified individually (CONFIRMED_DEAD_MATCH_IDS)
-      - 2022-2023 rounds 10-18, a block with no published stats
+    This is a legacy/backfill check for incomplete-tracking rows saved
+    before scrape_lnr.py could detect "verified empty" directly from a
+    live page load (see NO_STATS_TEXT in scrape_lnr.py). It must never be
+    used to infer status from season, round, or any other match's outcome —
+    only from an individual match's own verified result.
     """
     try:
-        if int(match_id) in CONFIRMED_DEAD_MATCH_IDS:
-            return True
+        return int(match_id) in CONFIRMED_DEAD_MATCH_IDS
     except (TypeError, ValueError):
-        pass
-
-    try:
-        if str(season) == "2022-2023" and 10 <= int(round_num) <= 18:
-            return True
-    except (TypeError, ValueError):
-        pass
-
-    return False
+        return False

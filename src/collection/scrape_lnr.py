@@ -36,7 +36,7 @@ import sys
 # Add the src directory to the path so we can import utils
 sys.path.append(str(Path(__file__).parent.parent))
 from utils import save_to_csv, extract_player_id
-from constants import is_confirmed_dead
+
 
 try:
     from selenium import webdriver
@@ -495,7 +495,7 @@ def scrape_one_match(
     home_team: str,
     away_team: str,
     delay: float,
-) -> Tuple[Dict, list]:
+) -> Tuple[Dict, list, bool]:
     """
     Scrape all statistics for a single match.
 
@@ -504,8 +504,20 @@ def scrape_one_match(
 
     Returns:
         Tuple of:
-            - match_data dict  (same as before)
-
+            - match_data dict
+            - list of player profile URLs
+            - verified_empty: True only if the statistics page loaded
+              successfully AND both home_passes/away_passes were actually
+              parsed (present, not missing) as exactly 0 — no real match
+              has zero passes on both sides. False for any other outcome,
+              including a page that failed to load/render in time — that's
+              a timeout, not evidence the match has no data. (Do NOT use
+              the "Aucune statistique disponible..." text or a timeout
+              waiting for 'match-statistics__roster' as signals — verified
+              by direct HTML comparison: that text is scoped to a "top
+              players" sub-widget that's empty on both real and empty
+              matches, and the roster wait target is present on empty
+              matches too, so neither discriminates anything.)
     """
     data = {'match_id': match_id}
 
@@ -542,6 +554,7 @@ def scrape_one_match(
         'match-statistics__roster',
         delay,
     )
+    verified_empty = False
     if not soup:
         logger.warning(f"[{match_id}] Failed to fetch statistics page — stats will be missing")
     else:
@@ -601,6 +614,17 @@ def scrape_one_match(
 
         data.update(extract_player_stats(soup))
 
+        # Verified empty: the passes stat bar was actually found and parsed
+        # on BOTH sides (not absent — a render failure would leave these
+        # keys missing from `data` entirely, not present-as-zero), and both
+        # sides read exactly 0. No real 80-minute match has zero passes, so
+        # this is LNR confirming no stats exist for this match — the same
+        # criterion used to drop all-zero rows in the cleaning stage
+        # (clean_dataset.py's Rule B), applied here at scrape time instead.
+        if data.get('home_passes') == 0 and data.get('away_passes') == 0:
+            verified_empty = True
+            logger.info(f"[{match_id}] Verified empty — home_passes/away_passes both 0 on a loaded page")
+
     # --- 3. Bonus points ---
     home_bonus, away_bonus = calculate_bonus_points(
         season,
@@ -613,7 +637,7 @@ def scrape_one_match(
     data['away_bonus_points'] = away_bonus
 
     logger.info(f"[{match_id}] Scraped {len(data)} fields, {len(player_urls)} player URLs")
-    return data, player_urls
+    return data, player_urls, verified_empty
 
 
 # =============================================================================
@@ -696,7 +720,7 @@ def scrape_lnr(
                 timeout_active = False
 
             try:
-                match_data, player_urls = scrape_one_match(
+                match_data, player_urls, verified_empty = scrape_one_match(
                     session, driver, match_id, base_url,
                     season, round_num, home_team, away_team, delay
                 )
@@ -710,11 +734,12 @@ def scrape_lnr(
                 ]
                 missing_fields = [f for f in critical if f not in match_data]
                 if missing_fields:
-                    status = (
-                        'confirmed_no_data'
-                        if is_confirmed_dead(match_id, season, round_num)
-                        else 'timeout_unverified'
-                    )
+                    # status reflects ONLY this attempt's own outcome — never
+                    # inferred from season/round/other matches. confirmed_no_data
+                    # requires this specific page load to have positively shown
+                    # LNR has no stats; anything else (timeout, render failure,
+                    # exception) is timeout_unverified and stays retry-eligible.
+                    status = 'confirmed_no_data' if verified_empty else 'timeout_unverified'
                     incomplete.append({
                         'match_id':       match_id,
                         'season':         season,

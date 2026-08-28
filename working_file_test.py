@@ -1,64 +1,39 @@
-import pandas as pd
-from src.utils import load_dataset, save_to_csv
+"""
+Quick targeted test: re-scrape just match 67 (known real stats) and match
+11057 (known genuinely empty) to sanity-check the verified_empty detection
+fix in scrape_lnr.py, without running the full retry_incomplete_matches()
+pass over all 64 confirmed_no_data matches.
+"""
+from src.utils import load_dataset
 from src.collection.scrape_lnr import scrape_lnr
-from src.collection.scrape_lnr_players import scrape_player_registry
-from src.collection.scrape_wikipedia import scrape_international_windows
-from src.collection.scrape_matches_list import scrape_matches_list
 
+TEST_MATCH_IDS = [67, 11057]
 
-def main():
-    # -------------------------------------------------------------------------
-    # 1. Scrape the full match list (all rounds, all seasons in SEASONS)
-    #    → produces: data/processed/matches_list.csv
-    # -------------------------------------------------------------------------
-    #print("Scraping match list for all seasons...")
-    #df_matches_list = scrape_matches_list()
-    #df_matches_list = df_matches_list[df_matches_list['is_playoff'] == 0].reset_index(drop=True)
+matches_list = load_dataset("processed", "matches_list.csv")
+test_matches = matches_list[matches_list["match_id"].isin(TEST_MATCH_IDS)].copy()
 
-    # -------------------------------------------------------------------------
-    # 2. Scrape regular season matches
-    #    → produces: data/processed/regular_season_stats.csv
-    #    → produces: data/processed/player_urls.csv  (one URL per player, deduplicated)
-    # -------------------------------------------------------------------------
-    #print("Scraping statistics for regular season matches...")
-    #df_regular_season_stats = scrape_lnr(df_matches_list)
+print(f"Scraping {len(test_matches)} test matches: {TEST_MATCH_IDS}")
+stats_df = scrape_lnr(test_matches, output_csv="test_two_matches.csv")
 
-    #print(f"Regular season stats DataFrame: {len(df_regular_season_stats)} rows, "
-    #      f"columns: {list(df_regular_season_stats.columns)}")
+print("\n" + "=" * 70)
+print("RESULTS")
+print("=" * 70)
+fields_of_interest = [
+    "match_id", "home_score", "away_score",
+    "home_scrums_played", "away_scrums_played",
+    "home_passes", "away_passes",
+]
+for mid in TEST_MATCH_IDS:
+    row = stats_df[stats_df["match_id"] == mid]
+    if row.empty:
+        print(f"match {mid}: no row returned (hard failure/exception)")
+        continue
+    row = row.iloc[0]
+    populated = row.notna().sum()
+    print(f"match {mid}: {populated} fields populated")
+    for f in fields_of_interest:
+        print(f"    {f}: {row.get(f)}")
 
-    # -------------------------------------------------------------------------
-    # 3. Scrape playoff matches (commented out for test — uncomment for full run)
-    # -------------------------------------------------------------------------
-    # print("Scraping statistics for playoff matches...")
-    # df_playoff_match_list = load_dataset("reference", "playoffs.csv")
-    # df_playoff_stats = scrape_lnr(df_playoff_match_list, output_csv="playoff_stats.csv")
-
-    # -------------------------------------------------------------------------
-    # 4. Scrape individual player profiles with season statistics
-    #    Uses match data to collect URLs and scrape profiles with season stats.
-    #    → produces: data/processed/player_urls.csv         (URLs only)
-    #    → produces: data/processed/players.csv         (name + nationality + season stats)
-    # -------------------------------------------------------------------------
-    #df_players_info = scrape_player_registry(df_matches_list)
-    #print(f"Successfully scraped info for {len(df_players_info)} players")
-    
-    # -------------------------------------------------------------------------
-    # 1. Load playoff match list
-    # -------------------------------------------------------------------------
-    df_playoff_match_list = load_dataset("reference", "playoffs.csv")
-
-    # -------------------------------------------------------------------------
-    # 2. Scrape playoff matches
-    #    → produces: data/processed/playoff_stats.csv
-    #    → produces: data/processed/player_urls.csv  (one URL per player, deduplicated)
-    # -------------------------------------------------------------------------
-    print("Scraping statistics for playoff matches...")
-    df_playoff_stats = scrape_lnr(df_playoff_match_list, output_csv="playoff_stats.csv")
-
-    print(f"Playoff stats DataFrame: {len(df_playoff_stats)} rows, "
-          f"columns: {list(df_playoff_stats.columns)}")
-    
-
-
-if __name__ == "__main__":
-    main()
+incomplete = load_dataset("processed", "test_two_matches_incomplete.csv")
+print("\nIncomplete-tracking result for this test run:")
+print(incomplete.to_string() if incomplete is not None else "  (none — both matches came back complete)")
