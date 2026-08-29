@@ -33,6 +33,8 @@ sys.path.append(str(Path(__file__).parent.parent))
 from utils import load_dataset, save_to_csv
 from constants import WEATHER_PARAM
 
+HISTORICAL_API = "https://archive-api.open-meteo.com/v1/archive"
+
 
 def merge_match_venue_data(df_matches: pd.DataFrame, df_venues: pd.DataFrame) -> pd.DataFrame:
     """
@@ -126,7 +128,7 @@ def fetch_weather_for_match(match_id: str, date: str, time: str, latitude: float
         }
         
         # Make API request
-        response = requests.get(historical_api, params=params, timeout=10)
+        response = requests.get(HISTORICAL_API, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
         
@@ -231,19 +233,28 @@ def collect_all_weather_data(df_merged: pd.DataFrame, delay: float = 0.5) -> pd.
     
     return df_weather
 
-if __name__ == "__main__":
-    # load list of matches and venues
-    df_matches = load_dataset("processed", "matches.csv")
-    df_venues = load_dataset("processed", "venues.csv")
-    
-    # Open-Meteo API configuration
-    historical_api = "https://archive-api.open-meteo.com/v1/archive"
-    
-    # Merge matches with venue coordinates
-    df_merged = merge_match_venue_data(df_matches, df_venues)
+def fetch_weather_for_all_matches(delay: float = 0.5) -> pd.DataFrame:
+    """
+    Full pipeline: load matches + venues, merge in coordinates, fetch
+    weather at kickoff time for every match, save to weather.csv.
+    """
+    # matches_stats_final.csv has match_date/match_time but not venue —
+    # venue only lives in matches_list.csv, so join it in first.
+    df_matches = load_dataset("processed", "matches_stats_final.csv")
+    df_matches_list = load_dataset("processed", "matches_list.csv")
+    df_matches = df_matches.merge(
+        df_matches_list[["match_id", "venue"]], on="match_id", how="left"
+    )
+    df_matches = df_matches.rename(columns={"match_date": "date", "match_time": "time"})
 
-    # Collect weather data
-    df_weather = collect_all_weather_data(df_merged, delay=0.5)
-    
-    # Create a csv file
+    df_venues = load_dataset("reference", "venues.csv")
+
+    df_merged = merge_match_venue_data(df_matches, df_venues)
+    df_weather = collect_all_weather_data(df_merged, delay=delay)
+
     save_to_csv(df_weather, "weather.csv", "processed")
+    return df_weather
+
+
+if __name__ == "__main__":
+    fetch_weather_for_all_matches()

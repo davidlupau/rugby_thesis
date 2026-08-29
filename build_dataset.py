@@ -15,12 +15,14 @@ Outputs (data/processed/):
     matches_stats_raw.csv       — regular+playoff merged, pre-cleaning (for reference)
     matches_stats_final.csv     — cleaned, analysis-ready match table
     dropped_matches_log.csv     — every row dropped during cleaning, with reason
+    weather.csv                 — kickoff-time weather per match, from Open-Meteo
 """
 from src.utils import load_dataset, save_to_csv
 from src.collection.scrape_matches_list import scrape_matches_list
 from src.collection.scrape_lnr import scrape_lnr
 from src.collection.scrape_lnr_players import scrape_player_registry
 from src.collection.scrape_wikipedia import scrape_international_windows
+from src.collection.fetch_weather import fetch_weather_for_all_matches
 from src.collection.retry_scraping import retry_incomplete_matches, retry_incomplete_players
 from src.processing.clean_dataset import (
     dedup_players,
@@ -78,6 +80,11 @@ def main():
     save_to_csv(final_df, "matches_stats_final.csv", "processed")
 
     sanity_checks(rows_before_drop, final_df, dropped_log, players_before, players_after)
+
+    print("\n" + "=" * 70)
+    print("STAGE 4 — Fetching weather data")
+    print("=" * 70)
+    fetch_weather_for_all_matches()
 
 
 if __name__ == "__main__":
