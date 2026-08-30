@@ -52,7 +52,6 @@ def scrape_all():
     scrape_player_registry(df_matches_list)
 
     # Scraping international player call-ups from Wikipedia
-    # print("Scraping international call-ups from Wikipedia...")
     # df_international_window = load_dataset("reference", "international_windows.csv")
     # scrape_international_windows(df_international_window)
 

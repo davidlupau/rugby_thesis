@@ -912,6 +912,395 @@ def scrape_player_registry(
 
 
 # =============================================================================
+# PER-MATCH PLAYER MINUTES  ("Statistiques de tous les joueurs" section)
+# =============================================================================
+#
+# DOM findings (confirmed against live pages, 2026-08):
+#
+#   div.match-statistics__roster-players
+#     ├── div.switcher-buttons__container
+#     │     ├── button.switcher-buttons__button--home   → home club name
+#     │     └── button.switcher-buttons__button--away   → away club name
+#     └── div.match-statistics__rosters-content
+#           ├── div.match-statistics__roster   (index 0 = home team)
+#           └── div.match-statistics__roster   (index 1 = away team)
+#
+#   Inside ONE roster block the rows are split into two stacked groups,
+#   correlated by order (row k of one group ↔ row k of the other):
+#     * player-row--club-cell rows with player-row__cell--player
+#         → <a class="player-cell__name" href=".../joueur/{id}-{slug}">
+#     * rows with player-row__cell--tempsJeu
+#         → minutes played ("tempsJeu", a plain integer)
+#   The first row of each group is a player-row--heading and is skipped.
+#
+#   NOTE: player-row__cell--position is deliberately NOT read — LNR populates
+#   that column with "Centre" for ~half of every squad, so its value is
+#   unusable. Minutes are read from their own --tempsJeu cell, independently.
+#
+#   The team switcher only TOGGLES CSS VISIBILITY — both rosters are fully
+#   rendered in the DOM on first load, so there is NO need to click it
+#   (unlike _expand_career_history's "show more" button, which adds rows).
+#
+#   Do NOT read match-statistics__top-players — that's a separate
+#   "Les tops joueurs par équipe" highlights block mixing both teams.
+
+MINUTES_COLUMNS = ["match_id", "player_id", "team", "minutes_played"]
+
+# Log of matches the cleaning stage already discarded (missing_data /
+# all_zero_stats). Re-used here so the full-scale minutes run skips them
+# instead of re-discovering the same 70 failures.
+DROPPED_MATCHES_LOG = "dropped_matches_log.csv"
+
+# Where a whole-roster tempsJeu blackout is recorded during the minutes run.
+MINUTES_INCOMPLETE_LOG = "player_minutes_incomplete_log.csv"
+MINUTES_INCOMPLETE_COLUMNS = [
+    "match_id", "team", "reason", "n_players_affected", "previously_known",
+]
+
+# Checkpoint cadence for the batch run (mirrors phase2_scrape_profiles's
+# "every 10" incremental-save convention).
+MINUTES_CHECKPOINT_EVERY = 10
+
+
+def _digits_to_int(text: str) -> Optional[int]:
+    """'83' -> 83 ; ' 12 ' -> 12 ; '' / '-' -> None."""
+    digits = "".join(c for c in text if c.isdigit())
+    return int(digits) if digits else None
+
+
+def load_excluded_match_ids(log_csv: str = DROPPED_MATCHES_LOG) -> set:
+    """
+    Return the set of match_id values the cleaning stage already logged as
+    dropped in data/processed/dropped_matches_log.csv (reasons such as
+    'missing_data' / 'all_zero_stats'). Empty set if the log is absent.
+    """
+    path = _resolve_processed_path(log_csv)
+    if not path.exists():
+        logger.warning(f"{log_csv} not found — no pre-filter will be applied")
+        return set()
+    df = pd.read_csv(path)
+    ids = set(df["match_id"].dropna().astype(int).tolist())
+    logger.info(f"{log_csv}: {len(ids)} already-excluded match_id(s)")
+    return ids
+
+
+def filter_matches_for_minutes(
+    df_matches: pd.DataFrame, log_csv: str = DROPPED_MATCHES_LOG
+) -> pd.DataFrame:
+    """
+    Drop rows whose match_id is in dropped_matches_log.csv and log the
+    before/after counts. df_matches needs a 'match_id' column.
+    """
+    excluded = load_excluded_match_ids(log_csv)
+    before = len(df_matches)
+    kept = df_matches[~df_matches["match_id"].astype(int).isin(excluded)].copy()
+    logger.info(
+        f"Pre-filter via {log_csv}: {before} matches in, "
+        f"{before - len(kept)} excluded, {len(kept)} left to scrape"
+    )
+    return kept
+
+
+def parse_roster_player_minutes(soup: BeautifulSoup, match_id) -> list:
+    """
+    Parse the 'Statistiques de tous les joueurs' section of a match statistics
+    page into a list of dicts, one per player per team:
+        {match_id, player_id, team, minutes_played}
+
+    Returns [] if the section is absent (e.g. matches with no published stats).
+    """
+    section = soup.find("div", class_="match-statistics__roster-players")
+    if section is None:
+        logger.warning(f"[{match_id}] match-statistics__roster-players not found")
+        return []
+
+    # Team names from the switcher buttons (home first, away second)
+    switcher = section.find("div", class_="switcher-buttons__container")
+    team_names: list = []
+    if switcher:
+        for mod in ("switcher-buttons__button--home", "switcher-buttons__button--away"):
+            btn = switcher.find("button", class_=mod)
+            team_names.append(btn.get_text(strip=True) if btn else None)
+    while len(team_names) < 2:
+        team_names.append(None)
+
+    roster_blocks = section.find_all("div", class_="match-statistics__roster")
+    if not roster_blocks:
+        logger.warning(f"[{match_id}] no match-statistics__roster blocks in section")
+        return []
+
+    records: list = []
+    for i, block in enumerate(roster_blocks[:2]):
+        team = team_names[i]
+
+        name_links = block.select("a.player-cell__name")
+        stat_rows = [
+            r for r in block.find_all("div", class_="player-row")
+            if "player-row--heading" not in r.get("class", [])
+            and r.find("div", class_="player-row__cell--tempsJeu") is not None
+        ]
+
+        if len(name_links) != len(stat_rows):
+            # Name column and stat column are paired by order; unequal lengths
+            # mean the top-down pairing may be misaligned below the first gap.
+            # Not seen on 2021-22..2025-26 pages, but flag it.
+            logger.warning(
+                f"[{match_id}] {team}: {len(name_links)} player links vs "
+                f"{len(stat_rows)} stat rows — pairing by order up to the shorter"
+            )
+
+        block_records: list = []
+        for a, row in zip(name_links, stat_rows):
+            player_id = extract_player_id(a.get("href", ""))
+            min_cell = row.find("div", class_="player-row__cell--tempsJeu")
+            block_records.append({
+                "match_id": match_id,
+                "player_id": player_id,
+                "team": team,
+                "minutes_played": _digits_to_int(min_cell.get_text(strip=True)) if min_cell else None,
+            })
+
+        # LNR sometimes ships a malformed players-ranking render where a subset
+        # of player rows is duplicated in place, name- and stat-column in
+        # lockstep (seen on matches 11306 / 11325 / 11408 / 11425 — a source
+        # DOM defect, stable across reloads, not a scraper retry). Collapse
+        # exact repeats of a player_id within the team; escalate loudly if the
+        # copies disagree, since that would be a real pairing bug, not a dupe.
+        seen: dict = {}
+        deduped: list = []
+        n_dropped = 0
+        for r in block_records:
+            pid = r["player_id"]
+            if pid is None:
+                deduped.append(r)
+                continue
+            if pid not in seen:
+                seen[pid] = r["minutes_played"]
+                deduped.append(r)
+                continue
+            n_dropped += 1
+            if seen[pid] != r["minutes_played"]:
+                logger.error(
+                    f"[{match_id}] {team}: player {pid} duplicated with CONFLICTING "
+                    f"minutes ({seen[pid]} vs {r['minutes_played']}) — kept first, "
+                    f"needs manual check"
+                )
+        if n_dropped:
+            logger.warning(
+                f"[{match_id}] {team}: dropped {n_dropped} duplicate player row(s) "
+                f"from a malformed roster render (kept {len(deduped)})"
+            )
+        block_records = deduped
+
+        # Some matches render the section but leave tempsJeu at 0 for the whole
+        # team — the minutes were never published (confirmed reproducible on
+        # 10255, not a render race). A completed match can't have every player
+        # on 0, so treat the block as missing: warn and null it out rather than
+        # emit a team of false zeros.
+        if block_records and all(
+            not r["minutes_played"] for r in block_records
+        ):
+            logger.warning(
+                f"[{match_id}] {team}: tempsJeu is 0/blank for all "
+                f"{len(block_records)} players — not published for this match, "
+                f"setting minutes_played to NA"
+            )
+            for r in block_records:
+                r["minutes_played"] = None
+
+        records.extend(block_records)
+
+    return records
+
+
+def scrape_player_minutes_for_match(
+    driver, match_url: str, match_id, delay: float = 2.0
+) -> pd.DataFrame:
+    """
+    Scrape per-player minutes played for a single match.
+
+    Args:
+        driver:     Selenium WebDriver
+        match_url:  Base match URL (…/{id}-home-away), same field Phase 1 uses
+        match_id:   Match identifier, copied into every output row
+        delay:      Seconds to wait before loading the page
+
+    Returns:
+        DataFrame with columns:
+            match_id, player_id, team, minutes_played
+        one row per player per team (empty DataFrame if the section is missing).
+    """
+    stats_url = f"{str(match_url).rstrip('/')}/statistiques-du-match"
+    soup = get_soup_selenium(
+        driver, stats_url, "match-statistics__roster-players",
+        delay=delay, extra_wait=3.0,
+    )
+    if soup is None:
+        logger.warning(f"[{match_id}] could not load {stats_url}")
+        return pd.DataFrame(columns=MINUTES_COLUMNS)
+
+    records = parse_roster_player_minutes(soup, match_id)
+    df = pd.DataFrame(records, columns=MINUTES_COLUMNS)
+    logger.info(
+        f"[{match_id}] {len(df)} player-minute rows across "
+        f"{df['team'].nunique()} team(s)"
+    )
+    return df
+
+
+def _concat_minutes(frames: list) -> pd.DataFrame:
+    """Concatenate per-match frames into one DataFrame with the fixed schema."""
+    if frames:
+        return pd.concat(frames, ignore_index=True)
+    return pd.DataFrame(columns=MINUTES_COLUMNS)
+
+
+def _detect_incomplete_rosters(df_match: pd.DataFrame, match_id, known_excluded: set) -> list:
+    """
+    Flag rosters the parser could not fill: a team whose minutes_played is
+    entirely NA (parser nulls a whole side when every tempsJeu reads 0/blank),
+    or a match that returned no rows at all. `previously_known` is True when
+    the match_id is already in dropped_matches_log.csv — those need no
+    follow-up; the rest are genuinely new findings.
+    """
+    rows: list = []
+    known = int(match_id) in known_excluded
+    if df_match is None or df_match.empty:
+        rows.append({
+            "match_id": match_id, "team": None, "reason": "section_missing",
+            "n_players_affected": 0, "previously_known": known,
+        })
+        return rows
+    for team, g in df_match.groupby("team", dropna=False):
+        if len(g) and g["minutes_played"].isna().all():
+            rows.append({
+                "match_id": match_id, "team": team, "reason": "all_zero_tempsJeu",
+                "n_players_affected": int(len(g)), "previously_known": known,
+            })
+    return rows
+
+
+def _save_minutes_incomplete(entries: list, incomplete_csv: str) -> pd.DataFrame:
+    """Dedupe on (match_id, team, reason), sort new findings first, save."""
+    df = pd.DataFrame(entries, columns=MINUTES_INCOMPLETE_COLUMNS)
+    if len(df):
+        df = df.drop_duplicates(subset=["match_id", "team", "reason"], keep="last")
+        df = df.sort_values(
+            ["previously_known", "match_id", "team"], na_position="first"
+        ).reset_index(drop=True)
+    save_to_csv(df, incomplete_csv, "processed")
+    return df
+
+
+def scrape_player_minutes(
+    df_matches: pd.DataFrame,
+    output_csv: str = "player_minutes.csv",
+    incomplete_csv: str = MINUTES_INCOMPLETE_LOG,
+    delay: float = 2.0,
+    headless: bool = True,
+    resume: bool = True,
+    checkpoint_every: int = MINUTES_CHECKPOINT_EVERY,
+    dropped_log_csv: str = DROPPED_MATCHES_LOG,
+) -> pd.DataFrame:
+    """
+    Batch wrapper: scrape per-player minutes for every match in df_matches
+    (needs columns 'match_id' and 'url') and save to data/processed/<output_csv>.
+
+    Scaling behaviour for the full ~870-match run:
+      * resume — if output_csv already exists, match_ids already present in it
+        are skipped (delete rows or the file to force a re-scrape).
+      * checkpoint — the concatenated output and the incomplete log are
+        re-saved every `checkpoint_every` matches, so a mid-run crash keeps
+        everything scraped so far.
+      * incomplete log — whenever a whole roster's tempsJeu reads 0/blank the
+        parser nulls that side; each occurrence is written to
+        data/processed/<incomplete_csv> with columns match_id, team, reason,
+        n_players_affected, previously_known. `previously_known` is True when
+        the match is already in dropped_matches_log.csv (no action needed);
+        False rows are new failures needing manual follow-up.
+
+    Returns the concatenated DataFrame: match_id, player_id, team, minutes_played
+    """
+    if not {"match_id", "url"}.issubset(df_matches.columns):
+        raise ValueError("df_matches must have 'match_id' and 'url' columns")
+
+    out_path = _resolve_processed_path(output_csv)
+
+    # --- resume: seed from existing output, skip done match_ids ---
+    done_ids: set = set()
+    seed_frames: list = []
+    if resume and out_path.exists():
+        prev = pd.read_csv(out_path)
+        if "match_id" in prev.columns and len(prev):
+            done_ids = set(prev["match_id"].dropna().astype(int).tolist())
+            seed_frames.append(prev)
+            logger.info(
+                f"Resume: {len(done_ids)} match_id(s) already in {output_csv}, skipping them"
+            )
+
+    todo = df_matches[~df_matches["match_id"].astype(int).isin(done_ids)].reset_index(drop=True)
+    logger.info(
+        f"scrape_player_minutes: {len(todo)} match(es) to scrape "
+        f"({len(df_matches) - len(todo)} skipped via resume)"
+    )
+
+    # match_ids already known-bad, only used to tag incomplete-log rows
+    known_excluded = load_excluded_match_ids(dropped_log_csv)
+
+    # --- resume: carry forward any existing incomplete-log rows ---
+    incomplete: list = []
+    inc_path = _resolve_processed_path(incomplete_csv)
+    if resume and inc_path.exists():
+        incomplete = pd.read_csv(inc_path).to_dict("records")
+        logger.info(f"Resume: carried {len(incomplete)} row(s) from {incomplete_csv}")
+
+    if todo.empty:
+        logger.info("Nothing to scrape — returning existing output unchanged")
+        return _concat_minutes(list(seed_frames))
+
+    frames: list = list(seed_frames)
+    driver = init_driver(headless=headless)
+    n_ok = 0
+    try:
+        for n, (_, row) in enumerate(todo.iterrows(), start=1):
+            match_id = row["match_id"]
+            logger.info(f"[{n}/{len(todo)}] match {match_id}")
+            try:
+                df_m = scrape_player_minutes_for_match(
+                    driver, row["url"], match_id, delay=delay
+                )
+            except Exception as exc:
+                logger.error(f"[{match_id}] {exc}\n{traceback.format_exc()}")
+                df_m = pd.DataFrame(columns=MINUTES_COLUMNS)
+
+            frames.append(df_m)
+            if len(df_m):
+                n_ok += 1
+            incomplete.extend(_detect_incomplete_rosters(df_m, match_id, known_excluded))
+
+            if checkpoint_every and n % checkpoint_every == 0:
+                save_to_csv(_concat_minutes(frames), output_csv, "processed")
+                _save_minutes_incomplete(incomplete, incomplete_csv)
+                logger.info(f"  checkpoint saved at {n}/{len(todo)} matches")
+    finally:
+        driver.quit()
+        logger.info("WebDriver closed")
+
+    df = _concat_minutes(frames)
+    save_to_csv(df, output_csv, "processed")
+    inc_df = _save_minutes_incomplete(incomplete, incomplete_csv)
+
+    n_known = int(inc_df["previously_known"].astype(bool).sum()) if len(inc_df) else 0
+    n_new = len(inc_df) - n_known
+    logger.info(
+        f"scrape_player_minutes done — {df['match_id'].nunique()} match(es) in "
+        f"{output_csv} ({len(df)} rows); {len(inc_df)} incomplete-roster row(s) "
+        f"in {incomplete_csv} (previously known: {n_known}, NEW: {n_new})"
+    )
+    return df
+
+
+# =============================================================================
 # STANDALONE EXECUTION (run phases independently)
 # =============================================================================
 
