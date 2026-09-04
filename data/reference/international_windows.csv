@@ -1,17 +1,17 @@
-int_window_id,season,competition,url
-int_1,2021-2022,Rugby Championship,https://en.wikipedia.org/wiki/2021_Rugby_Championship
-int_2,2021-2022,End of Year Internationals,https://en.wikipedia.org/wiki/2021_end-of-year_rugby_union_internationals
-int_3,2021-2022,6 Nations,https://en.wikipedia.org/wiki/2022_Six_Nations_Championship
-int_4,2022-2023,Rugby Championship,https://en.wikipedia.org/wiki/2022_Rugby_Championship
-int_5,2022-2023,End of Year Internationals,https://en.wikipedia.org/wiki/2022_end-of-year_rugby_union_internationals
-int_6,2022-2023,6 Nations,https://en.wikipedia.org/wiki/2023_Six_Nations_Championship
-int_7,2023-2024,World cup,https://en.wikipedia.org/wiki/2023_Rugby_World_Cup_squads
-int_8,2023-2024,6 Nations,https://en.wikipedia.org/wiki/2024_Six_Nations_Championship
-int_9,2024-2025,Rugby Championship,https://en.wikipedia.org/wiki/2024_Rugby_Championship
-int_10,2024-2025,Pacific Cup,https://en.wikipedia.org/wiki/2024_World_Rugby_Pacific_Nations_Cup
-int_11,2024-2025,End of Year Internationals,https://en.wikipedia.org/wiki/2024_end-of-year_rugby_union_internationals
-int_12,2024-2025,6 Nations,https://en.wikipedia.org/wiki/2025_Six_Nations_Championship
-int_13,2025-2026,Rugby Championship,https://en.wikipedia.org/wiki/2025_Rugby_Championship
-int_14,2025-2026,Pacific Cup,https://en.wikipedia.org/wiki/2025_World_Rugby_Pacific_Nations_Cup
-int_15,2025-2026,End of Year Internationals,https://en.wikipedia.org/wiki/2025_end-of-year_rugby_union_internationals
-int_16,2025-2026,6 Nations,https://en.wikipedia.org/wiki/2026_Six_Nations_Championship
+int_window_id,season,competition,start_date,end_date,url
+int_1,2021-2022,Rugby Championship,2021-08-14,2021-10-02,https://en.wikipedia.org/wiki/2021_Rugby_Championship
+int_2,2021-2022,End of Year Internationals,2021-10-23,2021-11-27,https://en.wikipedia.org/wiki/2021_end-of-year_rugby_union_internationals
+int_3,2021-2022,6 Nations,2022-02-05,2022-03-19,https://en.wikipedia.org/wiki/2022_Six_Nations_Championship_squads
+int_4,2022-2023,Rugby Championship,2022-08-06,2022-09-24,https://en.wikipedia.org/wiki/2022_Rugby_Championship
+int_5,2022-2023,End of Year Internationals,2022-10-29,2022-11-26,https://en.wikipedia.org/wiki/2022_end-of-year_rugby_union_internationals
+int_6,2022-2023,6 Nations,2023-02-04,2023-03-18,https://en.wikipedia.org/wiki/2023_Six_Nations_Championship_squads
+int_7,2023-2024,World cup,2023-09-08,2023-10-28,https://en.wikipedia.org/wiki/2023_Rugby_World_Cup_squads
+int_8,2023-2024,6 Nations,2024-02-02,2024-03-16,https://en.wikipedia.org/wiki/2024_Six_Nations_Championship_squads
+int_9,2024-2025,Rugby Championship,2024-08-10,2024-09-28,https://en.wikipedia.org/wiki/2024_Rugby_Championship
+int_10,2024-2025,Pacific Cup,2024-08-23,2024-09-21,https://en.wikipedia.org/wiki/2024_World_Rugby_Pacific_Nations_Cup
+int_11,2024-2025,End of Year Internationals,2024-10-26,2024-11-30,https://en.wikipedia.org/wiki/2024_end-of-year_rugby_union_internationals
+int_12,2024-2025,6 Nations,2025-01-31,2025-03-15,https://en.wikipedia.org/wiki/2025_Six_Nations_Championship_squads
+int_13,2025-2026,Rugby Championship,2025-08-16,2025-10-04,https://en.wikipedia.org/wiki/2025_Rugby_Championship
+int_14,2025-2026,Pacific Cup,2025-08-23,2025-09-25,https://en.wikipedia.org/wiki/2025_World_Rugby_Pacific_Nations_Cup
+int_15,2025-2026,End of Year Internationals,2025-11-01,2025-11-23,https://en.wikipedia.org/wiki/2025_end-of-year_rugby_union_internationals
+int_16,2025-2026,6 Nations,2026-02-05,2026-03-14,https://en.wikipedia.org/wiki/2026_Six_Nations_Championship_squads
