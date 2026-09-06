@@ -73,6 +73,13 @@ this script (it rebuilds from player_callups.csv + players.csv only) — they
 must be re-applied by hand, or via apply_callup_review_decisions.py if they
 are added to the review queue.
 
+UPDATE (2026-09): re-application is now automated by
+apply_manual_bridge_entries() below. It hardcodes both rows directly in
+code (not sourced from callup_review_queue.csv or any other file that could
+itself be wiped or regenerated) and is idempotent, so it is safe to call
+after every build_callup_name_bridge() run regardless of whether anything
+actually changed.
+
 The other 27 players in players_incomplete.csv have the same 302-removed
 profile pages but are left permanently unresolved: none is a confirmed
 international call-up whose absence feature depends on them, so a manual
@@ -228,5 +235,84 @@ def build_callup_name_bridge() -> pd.DataFrame:
     return bridge
 
 
+# player_name -> player_id for the "manual_entry_profile_removed" tier (see
+# the MANUAL TIER section in this module's docstring). Hardcoded here, NOT
+# read from callup_review_queue.csv or any other file -- these two
+# assertions must survive even if every other input to this pipeline is
+# wiped or regenerated.
+MANUAL_ENTRIES = {
+    "Lopeti Timani": 11434,
+    "Sonatane Takulua": 86,
+}
+MANUAL_ENTRY_METHOD = "manual_entry_profile_removed"
+MANUAL_ENTRY_NOTE = (
+    "LNR profile page 302-removed; matched directly from player_minutes.csv "
+    "(Top 14 apps) + player_callups.csv (call-ups)"
+)
+
+
+def apply_manual_bridge_entries() -> pd.DataFrame:
+    """
+    Re-assert the MANUAL TIER rows (Timani, Takulua) that a fresh
+    build_callup_name_bridge() run cannot reproduce on its own -- neither
+    player has an LNR profile page left to match against players.csv, so
+    the normal name -> full_name matching can never reach them.
+
+    Idempotent and safe to call after every build_callup_name_bridge() run,
+    fresh rebuild or not: a row already carrying the target player_id and
+    match_method is left untouched and logged as "already present" rather
+    than reapplied; only a row that actually needs the assertion is
+    logged as "ADDED". Never duplicates rows -- it updates the existing
+    callup_name_bridge.csv row for each name in place.
+    """
+    bridge = load_dataset("processed", "callup_name_bridge.csv")
+
+    missing_names = set(MANUAL_ENTRIES) - set(bridge["player_name"])
+    if missing_names:
+        raise ValueError(
+            f"manual bridge entry name(s) not found in callup_name_bridge.csv: "
+            f"{sorted(missing_names)} -- did player_callups.csv change, or was "
+            f"this called before build_callup_name_bridge() ever ran?"
+        )
+
+    bridge = bridge.set_index("player_name")
+    n_added = n_confirmed = 0
+
+    print("=" * 72)
+    for name, pid in MANUAL_ENTRIES.items():
+        current_pid = bridge.at[name, "player_id"]
+        current_method = bridge.at[name, "match_method"]
+        current_cause = bridge.at[name, "likely_cause"]
+        already_present = (
+            current_method == MANUAL_ENTRY_METHOD
+            and pd.notna(current_pid)
+            and int(current_pid) == pid
+            and current_cause == MANUAL_ENTRY_NOTE
+        )
+
+        if already_present:
+            n_confirmed += 1
+            print(f"  [manual bridge entry] {name} -> {pid}: already present, left as-is")
+        else:
+            bridge.at[name, "player_id"] = pid
+            bridge.at[name, "match_method"] = MANUAL_ENTRY_METHOD
+            bridge.at[name, "candidate_player_ids"] = str(pid)
+            bridge.at[name, "likely_cause"] = MANUAL_ENTRY_NOTE
+            n_added += 1
+            print(f"  [manual bridge entry] {name} -> {pid}: ADDED")
+
+    print(f"apply_manual_bridge_entries: {n_added} added, {n_confirmed} already present")
+    print("=" * 72)
+
+    bridge = bridge.reset_index()
+    save_to_csv(
+        bridge[["player_name", "player_id", "match_method",
+                "candidate_player_ids", "likely_cause", "callup_rows"]],
+        "callup_name_bridge.csv", "processed",
+    )
+    return bridge
+
+
 if __name__ == "__main__":
     build_callup_name_bridge()
+    apply_manual_bridge_entries()
