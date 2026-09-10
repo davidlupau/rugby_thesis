@@ -10,6 +10,7 @@ Function definitions live in src/ — this file just orchestrates them:
     src/processing/build_callup_name_bridge.py      — call-up name -> player_id
     src/processing/apply_callup_review_decisions.py — reapplies human-reviewed bridge matches
     src/processing/calculate_players_away.py        — absence coefficient
+    src/processing/calculate_european_congestion.py — European Cup fixture congestion
 
 Outputs (data/processed/):
     matches_list.csv            — raw fixture list, regular season + playoffs
@@ -24,6 +25,7 @@ Outputs (data/processed/):
     callup_name_bridge.csv      — call-up name -> player_id match
     player_minutes.csv          — match-by-match player participation
     players_away.csv            — per-match home/away absence coefficient
+    european_congestion.csv     — per-match home/away European Cup fixture-congestion flag
 
 NOTE -- callup_name_bridge.csv has hand-curated rows that build_callup_name_bridge()
 alone does NOT reproduce on a fresh rebuild (see that module's own
@@ -59,6 +61,7 @@ from src.processing.build_callup_name_bridge import (
 )
 from src.processing.apply_callup_review_decisions import apply_callup_review_decisions
 from src.processing.calculate_players_away import calculate_players_away
+from src.processing.calculate_european_congestion import calculate_european_congestion
 
 
 def scrape_all():
@@ -140,8 +143,12 @@ def main():
     print("=" * 70)
     calculate_players_away()
 
-    # Next stage to slot in here: European congestion / travel / form
-    # features -- none of those are built yet.
+    print("\n" + "=" * 70)
+    print("STAGE 8 — European Cup fixture congestion")
+    print("=" * 70)
+    calculate_european_congestion()
+
+    # Next stage to slot in here: travel / form features -- not built yet.
 
 
 if __name__ == "__main__":
